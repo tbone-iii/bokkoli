@@ -12,17 +12,12 @@ import (
 )
 
 var (
-	// modelStyle = lipgloss.NewStyle().
-	// 		Width(15).
-	// 		Height(5).
-	// 		Align(lipgloss.Center, lipgloss.Center).
-	// 		BorderStyle(lipgloss.HiddenBorder())
-	// focusedModelStyle = lipgloss.NewStyle().
-	// 			Width(15).
-	// 			Height(5).
-	// 			Align(lipgloss.Center, lipgloss.Center).
-	// 			BorderStyle(lipgloss.NormalBorder()).
-	// 			BorderForeground(lipgloss.Color("69"))
+	focusedModelStyle = lipgloss.NewStyle().
+				Width(15).
+				Height(5).
+				Align(lipgloss.Center, lipgloss.Center).
+				BorderStyle(lipgloss.NormalBorder()).
+				BorderForeground(lipgloss.Color("69"))
 	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 )
 
@@ -99,11 +94,11 @@ func (m mainModel) View() string {
 	var s string
 	model := m.currentFocusedModel()
 	if m.state == loginView {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), m.setting.View(), m.instruction.View())
+		s += lipgloss.JoinHorizontal(lipgloss.Top, focusedModelStyle.Render(m.login.View()), m.setting.View(), m.instruction.View())
 	} else if m.state == settingView {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), m.setting.View(), m.instruction.View())
+		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), focusedModelStyle.Render(m.setting.View()), m.instruction.View())
 	} else {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), m.setting.View(), m.instruction.View())
+		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), m.setting.View(), focusedModelStyle.Render(m.instruction.View()))
 	}
 	s += helpStyle.Render(fmt.Sprintf("\ntab: focus next • n: new %s • q: exit\n", model))
 	return s

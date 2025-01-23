@@ -1,4 +1,4 @@
-package setting
+package instruction
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ func New() Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.SetWindowTitle("setting")
+	return tea.SetWindowTitle("login")
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
@@ -55,7 +55,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	s := "setting?\n\n"
+	s := "login\n\n"
 
 	for i, choice := range m.choices {
 		cursor := " "

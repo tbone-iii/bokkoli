@@ -1,11 +1,12 @@
 package main
 
 import (
-	"bokkoli/instruction"
-	"bokkoli/login"
-	"bokkoli/setting"
 	"fmt"
 	"log"
+
+	"bokkoli/internal/control"
+	"bokkoli/internal/instruction"
+	"bokkoli/internal/login"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -27,7 +28,7 @@ type sessionState uint
 const (
 	//default??
 	loginView sessionState = iota //
-	settingView
+	controlView
 	instructionView
 )
 
@@ -35,13 +36,13 @@ type mainModel struct {
 	state       sessionState //
 	instruction instruction.Model
 	login       login.Model
-	setting     setting.Model
+	control     control.Model
 }
 
 func newModel() mainModel {
 	m := mainModel{state: loginView}
 	m.login = login.New()
-	m.setting = setting.New()
+	m.control = control.New()
 	m.instruction = instruction.New()
 	return m
 }
@@ -64,8 +65,8 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //At some point ma
 			return m, tea.Quit
 		case "tab":
 			if m.state == loginView {
-				m.state = settingView
-			} else if m.state == settingView {
+				m.state = controlView
+			} else if m.state == controlView {
 				m.state = instructionView
 			} else {
 				m.state = loginView
@@ -77,8 +78,8 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //At some point ma
 		case loginView:
 			m.login, cmd = m.login.Update(msg)
 			cmds = append(cmds, cmd)
-		case settingView:
-			m.setting, cmd = m.setting.Update(msg)
+		case controlView:
+			m.control, cmd = m.control.Update(msg)
 			cmds = append(cmds, cmd)
 		case instructionView:
 			m.instruction, cmd = m.instruction.Update(msg)
@@ -94,11 +95,11 @@ func (m mainModel) View() string {
 	var s string
 	model := m.currentFocusedModel()
 	if m.state == loginView {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, focusedModelStyle.Render(m.login.View()), m.setting.View(), m.instruction.View())
-	} else if m.state == settingView {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), focusedModelStyle.Render(m.setting.View()), m.instruction.View())
+		s += lipgloss.JoinHorizontal(lipgloss.Top, focusedModelStyle.Render(m.login.View()), m.control.View(), m.instruction.View())
+	} else if m.state == controlView {
+		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), focusedModelStyle.Render(m.control.View()), m.instruction.View())
 	} else {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), m.setting.View(), focusedModelStyle.Render(m.instruction.View()))
+		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), m.control.View(), focusedModelStyle.Render(m.instruction.View()))
 	}
 	s += helpStyle.Render(fmt.Sprintf("\ntab: focus next • n: new %s • q: exit\n", model))
 	return s
@@ -107,8 +108,8 @@ func (m mainModel) View() string {
 func (m mainModel) currentFocusedModel() string {
 	if m.state == loginView {
 		return "login"
-	} else if m.state == settingView {
-		return "setting"
+	} else if m.state == controlView {
+		return "control"
 	} else {
 		return "instruction"
 	}

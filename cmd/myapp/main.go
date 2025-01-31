@@ -1,12 +1,10 @@
 package main
 
 import (
+	"bokkoli/internal/login"
+	"bokkoli/internal/message"
 	"fmt"
 	"log"
-
-	"bokkoli/internal/control"
-	"bokkoli/internal/instruction"
-	"bokkoli/internal/login"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,108 +12,90 @@ import (
 
 var (
 	focusedModelStyle = lipgloss.NewStyle().
-				Width(15).
-				Height(5).
+				Width(30). // Increased for better visibility
+				Height(8).
 				Align(lipgloss.Center, lipgloss.Center).
 				BorderStyle(lipgloss.NormalBorder()).
 				BorderForeground(lipgloss.Color("69"))
-	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+
+	helpStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241"))
 )
 
-// used to track which model is focused
+// sessionState keeps track of the current view
 type sessionState uint
 
 const (
-	//default??
-	loginView sessionState = iota //
-	controlView
-	instructionView
+	loginView sessionState = iota
+	chatView
 )
 
 type mainModel struct {
-	state       sessionState //
-	instruction instruction.Model
-	login       login.Model
-	control     control.Model
+	state sessionState
+	login login.Model
+	chat  message.ChatModel
 }
 
 func newModel() mainModel {
 	m := mainModel{state: loginView}
 	m.login = login.New()
-	m.control = control.New()
-	m.instruction = instruction.New()
+	m.chat = message.New()
 	return m
 }
 
 func (m mainModel) Init() tea.Cmd {
-	return nil //start views on program start
+	return nil // Start views when the program begins
 }
 
-func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) { //At some point maybe arrow keys instead of tab and press enter to actually enter the view
+func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
-	switch msg := msg.(type) {
 
-	// Is it a key press?
+	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		//what is the key pressed?
 		switch msg.String() {
-		//exit program
 		case "ctrl+c", "q":
 			return m, tea.Quit
-		case "tab":
-			if m.state == loginView {
-				m.state = controlView
-			} else if m.state == controlView {
-				m.state = instructionView
-			} else {
-				m.state = loginView
-			}
 		}
 
-		switch m.state {
-		// update whichever model is focused
-		case loginView:
-			m.login, cmd = m.login.Update(msg)
-			cmds = append(cmds, cmd)
-		case controlView:
-			m.control, cmd = m.control.Update(msg)
-			cmds = append(cmds, cmd)
-		case instructionView:
-			m.instruction, cmd = m.instruction.Update(msg)
-			cmds = append(cmds, cmd)
-		default:
-			fmt.Println("Oops. Defaulted.")
+	case string:
+		if msg == "start chatting" {
+			m.state = chatView // ✅ Switch to chat view
 		}
 	}
+
+	// Handle different views
+	switch m.state {
+	case loginView:
+		m.login, cmd = m.login.Update(msg)
+		cmds = append(cmds, cmd)
+	case chatView:
+		var updatedChat tea.Model
+		updatedChat, cmd = m.chat.Update(msg)
+
+		if chatModel, ok := updatedChat.(message.ChatModel); ok {
+			m.chat = chatModel
+		} else {
+			log.Println("Unexpected type assertion failure for ChatModel")
+		}
+		cmds = append(cmds, cmd)
+	}
+
 	return m, tea.Batch(cmds...)
 }
 
 func (m mainModel) View() string {
-	var s string
-	model := m.currentFocusedModel()
-	if m.state == loginView {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, focusedModelStyle.Render(m.login.View()), m.control.View(), m.instruction.View())
-	} else if m.state == controlView {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), focusedModelStyle.Render(m.control.View()), m.instruction.View())
-	} else {
-		s += lipgloss.JoinHorizontal(lipgloss.Top, m.login.View(), m.control.View(), focusedModelStyle.Render(m.instruction.View()))
+	if m.state == chatView {
+		return m.chat.View()
 	}
-	s += helpStyle.Render(fmt.Sprintf("\ntab: focus next • n: new %s • q: exit\n", model))
-	return s
-}
-
-func (m mainModel) currentFocusedModel() string {
-	if m.state == loginView {
-		return "login"
-	} else if m.state == controlView {
-		return "control"
-	} else {
-		return "instruction"
-	}
+	return lipgloss.JoinVertical(lipgloss.Left,
+		focusedModelStyle.Render(m.login.View()),
+		helpStyle.Render("\nPress ↑/↓ to navigate • Press Enter to select • Press Q to quit"),
+	)
 }
 
 func main() {
+	fmt.Println("Welcome to Bokkoli!")
 	p := tea.NewProgram(newModel())
 
 	if _, err := p.Run(); err != nil {

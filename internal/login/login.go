@@ -2,8 +2,10 @@ package login
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Model struct {
@@ -14,17 +16,13 @@ type Model struct {
 
 func New() Model {
 	return Model{
-		choices: []string{"option 1", "option 2", "option 3"},
-
-		// A map which indicates which choices are selected. We're using
-		// the map like a mathematical set. The keys refer to the indexes
-		// of the `choices` slice, above.
+		choices:  []string{"Start chatting", "option 2", "option 3"},
 		selected: make(map[int]struct{}),
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.SetWindowTitle("login")
+	return tea.SetWindowTitle("start here")
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
@@ -42,12 +40,16 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter", " ":
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
-			} else {
-				m.selected[m.cursor] = struct{}{}
+			if m.cursor == 0 {
+				return m, func() tea.Msg { return "start chatting" }
 			}
+
+			// _, ok := m.selected[m.cursor]
+			// if ok {
+			// 	delete(m.selected, m.cursor)
+			// } else {
+			// 	m.selected[m.cursor] = struct{}{}
+			// }
 		}
 	}
 
@@ -55,23 +57,41 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	s := "login\n\n"
+	s := strings.Builder{}
+	s.WriteString("Bokkoli\n\n")
 
-	for i, choice := range m.choices {
+	// cursorStyle := lipgloss.NewStyle().
+	//  Foreground(lipgloss.Color("69")).
+	//  Bold(true)
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("34")).
+		Bold(true)
+
+	defaultStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+
+	for i := 0; i < len(m.choices); i++ {
+		itemStyle := defaultStyle
+		if m.cursor == i {
+			itemStyle = selectedStyle
+		}
+
 		cursor := " "
 		if m.cursor == i {
-			cursor = ">"
+			cursor = "(•)"
+		} else {
+			cursor = "( )"
 		}
 
-		checked := " "
-		if _, ok := m.selected[i]; ok {
-			checked = "x"
-		}
-
-		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
+		s.WriteString(fmt.Sprintf("%s %s\n", cursor, itemStyle.Render(m.choices[i])))
 	}
 
-	s += "\nPress q to quit.\n"
+	return s.String()
+}
 
-	return s
+func StartChatting() tea.Cmd {
+	return func() tea.Msg {
+		return "start chatting"
+	}
 }

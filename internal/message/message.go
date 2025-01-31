@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,43 +21,46 @@ type Model struct {
 }
 
 type ChatModel struct {
-	messages []string
-	input    string
-	conn     net.Conn
-	isClient bool
+	messages      []string
+	input         string
+	conn          net.Conn
+	isClient      bool
+	serverStarted bool
 }
 
-// New initializes a new Model instance
-func New() ChatModel {
-	return ChatModel{
-		messages: []string{"Welcome to the chat!"},
-		input:    "",
-		isClient: false,
+// New initializes a new ChatModel instance
+func New() *ChatModel {
+	return &ChatModel{
+		messages:      []string{},
+		input:         "",
+		isClient:      false,
+		serverStarted: false,
 	}
 }
 
-// Init is required for Bubble Tea but isn't used here
-func (m ChatModel) Init() tea.Cmd {
-	go startServer()
+// Init initializes the model and optionally starts the server
+func (m *ChatModel) Init() tea.Cmd {
+	// Do nothing initially, no goroutines
 	return nil
 }
 
-// Update handles user input (not needed for chat functionality in this case)
-func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// Update handles user input and sends messages
+func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			if m.input == "" {
-				return m, nil
+			if m.input == "start chatting" && !m.serverStarted {
+				m.serverStarted = true
+				// Start the server directly without using goroutines
+				startServer()
 			}
 			if m.input == "exit" {
 				return m, tea.Quit
 			}
-			if m.conn != nil {
+			if m.conn != nil && m.input != "" {
 				sendMessage(m.conn, m.input)
 			}
-
 			m.messages = append(m.messages, "You: "+m.input)
 			m.input = ""
 
@@ -66,28 +68,27 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.input += msg.String()
 		}
 	}
+
 	return m, nil
 }
 
-// View renders the application UI
-func (m ChatModel) View() string {
+// View renders the chat interface
+func (m *ChatModel) View() string {
 	var chatView string
 	for _, msg := range m.messages {
 		chatView += msg + "\n"
 	}
-	return fmt.Sprintf(
-		"Chat:\n%s\n\nType and press Enter to send.\n(Type 'exit' to quit)\n %s",
-		chatView, m.input,
-	)
+
+	return fmt.Sprintf("Chat:\n%s\n\nType and press Enter to send.\n(Type 'exit' to quit)\n %s", chatView, m.input)
 }
 
 // RunChat starts the server and client for messaging
-func RunChat() {
-	go startServer() // Run server in a goroutine
-	startClient()    // Run client in the main thread
+func RunChat(p *tea.Program) {
+	// Send a message to the Bubble Tea program to simulate a key press (start chatting)
+	p.Send(tea.KeyMsg{Type: tea.KeyEnter}) // Simulate pressing Enter
 }
 
-// Start a TCP server to listen for incoming messages
+// startServer starts the server and waits for incoming connections
 func startServer() {
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("Enter the port to listen on (default 8080):")
@@ -112,11 +113,11 @@ func startServer() {
 			continue
 		}
 		log.Println("Someone has connected")
-		go handleConnection(conn)
+		handleConnection(conn)
 	}
 }
 
-// Handles incoming messages from a connected client
+// handleConnection handles the incoming messages from the client
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
@@ -139,48 +140,12 @@ func handleConnection(conn net.Conn) {
 	}
 }
 
-func startClient() {
-	log.Println("Starting client...")
-	scanner := bufio.NewScanner(os.Stdin)
-
-	for {
-		fmt.Println("Enter the peer's address (e.g., 127.0.0.1:8081):")
-		scanner.Scan()
-		address := scanner.Text()
-
-		if !strings.Contains(address, ":") {
-			fmt.Println("Invalid address. Format: hostname:port")
-			continue
-		}
-
-		conn, err := net.Dial("tcp", address)
-		if err != nil {
-			log.Printf("Error connecting to peer: %v", err)
-			fmt.Println("Failed to connect. Try again.")
-			continue
-		}
-		defer conn.Close()
-
-		fmt.Println("Connected! Type messages (type 'exit' to quit):")
-		go handleConnection(conn)
-
-		for scanner.Scan() {
-			text := scanner.Text()
-			if text == "exit" {
-				log.Println("Exiting client...")
-				return
-			}
-			sendMessage(conn, text) // Use sendMessage function
-		}
-		break
-	}
-}
-
+// sendMessage sends a message to the connected peer
 func sendMessage(conn net.Conn, text string) {
 	msg := Model{
 		Text:      text,
-		Sender:    "User1", // Replace with actual sender ID
-		Receiver:  "User2", // Replace with actual receiver ID
+		Sender:    "User1",
+		Receiver:  "User2",
 		Type:      "chat",
 		Timestamp: time.Now(),
 	}
@@ -198,5 +163,5 @@ func sendMessage(conn net.Conn, text string) {
 		return
 	}
 
-	writer.Flush() // Ensure message is sent immediately
+	writer.Flush()
 }

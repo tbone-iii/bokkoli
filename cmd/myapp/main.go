@@ -12,7 +12,7 @@ import (
 
 var (
 	focusedModelStyle = lipgloss.NewStyle().
-				Width(30). // Increased for better visibility
+				Width(30).
 				Height(8).
 				Align(lipgloss.Center, lipgloss.Center).
 				BorderStyle(lipgloss.NormalBorder()).
@@ -22,7 +22,6 @@ var (
 			Foreground(lipgloss.Color("241"))
 )
 
-// sessionState keeps track of the current view
 type sessionState uint
 
 const (
@@ -33,13 +32,13 @@ const (
 type mainModel struct {
 	state sessionState
 	login login.Model
-	chat  message.ChatModel
+	chat  *message.ChatModel // Use pointer type here
 }
 
 func newModel() mainModel {
 	m := mainModel{state: loginView}
 	m.login = login.New()
-	m.chat = message.New()
+	m.chat = message.New() // Corrected to use pointer
 	return m
 }
 
@@ -58,10 +57,18 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-	case string:
-		if msg == "start chatting" {
-			m.state = chatView // ✅ Switch to chat view
+		// Check if "start chatting" was typed in the login view
+		if msg.String() == "enter" && m.state == loginView {
+			// Transition to chat view when "start chatting" is selected
+			m.state = chatView
+			// Start the server when chat view is entered
+			go func() {
+				// Simulate server start when entering the chat view
+				// Call your method to start the server here
+				message.RunChat(tea.NewProgram(m.chat)) // Pass chat as pointer to tea program
+			}()
 		}
+
 	}
 
 	// Handle different views
@@ -71,9 +78,9 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	case chatView:
 		var updatedChat tea.Model
-		updatedChat, cmd = m.chat.Update(msg)
+		updatedChat, cmd = m.chat.Update(msg) // Calling on pointer
 
-		if chatModel, ok := updatedChat.(message.ChatModel); ok {
+		if chatModel, ok := updatedChat.(*message.ChatModel); ok { // Corrected type assertion to pointer
 			m.chat = chatModel
 		} else {
 			log.Println("Unexpected type assertion failure for ChatModel")
@@ -86,7 +93,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m mainModel) View() string {
 	if m.state == chatView {
-		return m.chat.View()
+		return m.chat.View() // We can call View on pointer type as well
 	}
 	return lipgloss.JoinVertical(lipgloss.Left,
 		focusedModelStyle.Render(m.login.View()),

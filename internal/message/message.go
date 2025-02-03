@@ -28,7 +28,6 @@ type ChatModel struct {
 	serverStarted bool
 }
 
-// New initializes a new ChatModel instance
 func New() *ChatModel {
 	return &ChatModel{
 		messages:      []string{},
@@ -57,7 +56,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.conn != nil && m.input != "" {
 				sendMessage(m.conn, m.input)
 			}
-			m.messages = append(m.messages, "You: "+m.input)
+			m.messages = append(m.messages, m.input)
 			m.input = ""
 
 		default:
@@ -74,7 +73,7 @@ func (m *ChatModel) View() string {
 		chatView += msg + "\n"
 	}
 
-	return fmt.Sprintf("Chat:\n%s\n\nType and press Enter to send.\n(Type 'exit' to quit)\n %s", chatView, m.input)
+	return fmt.Sprintf("%sType and press Enter to send.\n(Type 'exit' to quit)\n %s", chatView, m.input)
 }
 
 func RunChat(p *tea.Program) {

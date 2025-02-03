@@ -57,15 +57,10 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-		// Check if "start chatting" was typed in the login view
 		if msg.String() == "enter" && m.state == loginView {
-			// Transition to chat view when "start chatting" is selected
 			m.state = chatView
-			// Start the server when chat view is entered
 			go func() {
-				// Simulate server start when entering the chat view
-				// Call your method to start the server here
-				message.RunChat(tea.NewProgram(m.chat)) // Pass chat as pointer to tea program
+				message.RunChat(tea.NewProgram(m.chat))
 			}()
 		}
 
@@ -78,9 +73,9 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	case chatView:
 		var updatedChat tea.Model
-		updatedChat, cmd = m.chat.Update(msg) // Calling on pointer
+		updatedChat, cmd = m.chat.Update(msg)
 
-		if chatModel, ok := updatedChat.(*message.ChatModel); ok { // Corrected type assertion to pointer
+		if chatModel, ok := updatedChat.(*message.ChatModel); ok {
 			m.chat = chatModel
 		} else {
 			log.Println("Unexpected type assertion failure for ChatModel")
@@ -93,7 +88,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m mainModel) View() string {
 	if m.state == chatView {
-		return m.chat.View() // We can call View on pointer type as well
+		return m.chat.View()
 	}
 	return lipgloss.JoinVertical(lipgloss.Left,
 		focusedModelStyle.Render(m.login.View()),

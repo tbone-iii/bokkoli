@@ -28,7 +28,6 @@ type ChatModel struct {
 	serverStarted bool
 }
 
-// New initializes a new ChatModel instance
 func New() *ChatModel {
 	return &ChatModel{
 		messages:      []string{},

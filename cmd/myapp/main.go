@@ -32,18 +32,18 @@ const (
 type mainModel struct {
 	state sessionState
 	login login.Model
-	chat  *message.ChatModel // Use pointer type here
+	chat  *message.ChatModel
 }
 
 func newModel() mainModel {
 	m := mainModel{state: loginView}
 	m.login = login.New()
-	m.chat = message.New() // Corrected to use pointer
+	m.chat = message.New()
 	return m
 }
 
 func (m mainModel) Init() tea.Cmd {
-	return nil // Start views when the program begins
+	return nil
 }
 
 func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -66,7 +66,6 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	}
 
-	// Handle different views
 	switch m.state {
 	case loginView:
 		m.login, cmd = m.login.Update(msg)

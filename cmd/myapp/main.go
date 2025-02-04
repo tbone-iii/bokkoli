@@ -59,9 +59,8 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if msg.String() == "enter" && m.state == loginView {
 			m.state = chatView
-			go func() {
-				message.RunChat(tea.NewProgram(m.chat))
-			}()
+			// Here you'll want to start up the chat room
+			m.chat = message.New()
 		}
 
 	}

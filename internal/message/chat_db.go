@@ -1,27 +1,27 @@
-package chatActivity
+package message
 
 import (
 	"database/sql"
 	"fmt"
-	"sync"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
-type ChatActivity struct {
-	mu sync.Mutex
+type ChatDB struct {
 	db *sql.DB
 }
 
-const file string = "./chatActivity.db"
+const DefaultDbFilePath string = "./bokkoli.db"
 
-func NewChatActivity() (*ChatActivity, error) {
-	db, err := sql.Open("sqlite3", file)
+func NewChatDB(filePath string) (*ChatDB, error) {
+	db, err := sql.Open("sqlite3", filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
 	if err := setupSchema(db); err != nil {
 		return nil, fmt.Errorf("failed fot setup schema: %v", err)
 	}
-	return &ChatActivity{db: db}, nil
+	return &ChatDB{db: db}, nil
 }
 
 func setupSchema(db *sql.DB) error {
@@ -31,7 +31,6 @@ func setupSchema(db *sql.DB) error {
         text TEXT NOT NULL,
         sender TEXT NOT NULL,
         receiver TEXT NOT NULL,
-        message_type TEXT NOT NULL,
         timestamp DATETIME NOT NULL
     );`
 	_, err := db.Exec(schema)
@@ -41,14 +40,13 @@ func setupSchema(db *sql.DB) error {
 	return nil
 }
 
-func (ca *ChatActivity) saveMessage(msg Message) error {
-	ca.mu.Lock()
-
+func (chatdb *ChatDB) saveMessage(msg Message) error {
 	query := `
-	INSERT INTO messages (text, sender, receiver, message_type, timestamp)
-	VALUES (?, ?, ?, ?, ?)`
+	INSERT INTO messages (text, sender, receiver, timestamp)
+	VALUES (?, ?, ?, ?)
+	`
 
-	_, err := ca.db.Exec(query, msg.Text, msg.Sender, msg.Receiver, msg.Type, msg.Timestamp)
+	_, err := chatdb.db.Exec(query, msg.Text, msg.Sender, msg.Receiver, msg.Timestamp)
 	if err != nil {
 		return fmt.Errorf("failed to save message: %v", err)
 	}

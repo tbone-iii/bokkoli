@@ -26,11 +26,10 @@ type listenerConn struct {
 	conn net.Conn
 }
 
-type Model struct {
+type Message struct {
 	Text      string    `json:"text"`
 	Sender    string    `json:"sender"`
 	Receiver  string    `json:"receiver"`
-	Type      string    `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
@@ -42,6 +41,7 @@ type ChatModel struct {
 	listener     net.Listener
 	isClient     bool
 	portNumber   string
+	chatDB       ChatDB
 }
 
 func New() *ChatModel {
@@ -215,7 +215,7 @@ func handleListenerConn(conn net.Conn) rawReceivedMessage {
 	reader := bufio.NewReader(conn)
 
 	for {
-		log.Println("We trying to read here, with listener: ", conn.LocalAddr().String())
+		log.Println("Listener is handling connection, awaiting read: ", conn.LocalAddr().String())
 		message, err := reader.ReadBytes('\n')
 
 		if err != nil {
@@ -224,7 +224,7 @@ func handleListenerConn(conn net.Conn) rawReceivedMessage {
 			return rawReceivedMessage("Friend disconnected.")
 		}
 
-		var receivedMsg Model
+		var receivedMsg Message
 		err = json.Unmarshal(message, &receivedMsg)
 		if err != nil {
 			log.Println("Invalid message received:", message)
@@ -245,16 +245,33 @@ func sendMessageCmd(conn net.Conn, text string) tea.Cmd {
 }
 
 // TODO: Refactor to be Struct returned, not raw string
+// TODO: Break sendMessage into two functions; one to create a Message struct,
+// TODO: another to actually send the JSON parsed message
+// TODO: OR rename function to properly capture meaning of what it does
+// NOTE: which is storing raw text into a crafted Message struct, serializing, and sending
+
+// Example: prepareAndSendMessage
+
+// Sends a message to connection `conn`, raw `text` message to send
+// During this process, converts into a serialized JSON
+// Also, stores Message into database
 func sendMessage(conn net.Conn, text string) rawSentMessage {
-	msg := Model{
+	msg := Message{
 		Text:      text,
 		Sender:    "User1",
 		Receiver:  "User2",
-		Type:      "chat",
 		Timestamp: time.Now(),
 	}
 
-	log.Printf("%s, %s", msg.Text, msg.Timestamp)
+	log.Printf("Crafted message into Struct as: %s, %s", msg.Text, msg.Timestamp)
+
+	// TODO: refactor out into a DB handle in function args/params
+	chatDB, err := NewChatDB(DefaultDbFilePath)
+	if err != nil {
+		log.Println("Error on opening DB: ", err)
+	}
+
+	chatDB.saveMessage(msg)
 
 	jsonData, err := json.Marshal(msg)
 	if err != nil {

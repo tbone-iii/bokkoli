@@ -12,24 +12,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type listenerType struct {
-	net.Listener
-}
-
-// type rawReceivedMessage struct {
-// 	Text      string
-// 	Sender    string
-// 	Receiver  string
-// 	Timestamp time.Time
-// }
-
-// type RawSentMessage struct {
-// 	Text      string
-// 	Sender    string
-// 	Receiver  string
-// 	Timestamp time.Time
-// }
-
 type peerConn struct {
 	conn net.Conn
 }
@@ -38,30 +20,58 @@ type listenerConn struct {
 	conn net.Conn
 }
 
+type errorOnMessageReceive struct {
+	err error
+}
+type errorOnMessageSend struct {
+	err error
+}
+
+type (
+	direction    string
+	listener     net.Listener
+	incomingJson []byte
+)
+
+const (
+	Outgoing direction = "outgoing"
+	Incoming direction = "incoming"
+)
+
 type Message struct {
 	Text      string    `json:"text"`
 	Sender    string    `json:"sender"`
 	Receiver  string    `json:"receiver"`
+	Direction direction `json:"direction"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
 type ChatModel struct {
-	messages     []string
+	// TODO: If # of fields increase, break down into grouped sub-structs
+	messages     []Message
 	input        string
 	peerConn     net.Conn // TODO: You will implement an array of peers
 	listenerConn net.Conn
 	listener     net.Listener
 	isClient     bool
 	portNumber   string
-	chatDB       ChatDB
+	chatDb       *ChatDb
+	username     string
 }
 
 func New() *ChatModel {
+	db, err := NewChatDB(DefaultDbFilePath)
+	if err != nil {
+		log.Println("Error upon DB creation: ", err)
+	}
+
 	return &ChatModel{
-		messages:   []string{},
+		messages:   []Message{},
 		input:      "",
 		isClient:   false,
 		portNumber: "8080",
+		username:   "Somy", // TODO: Pull this info from DB or user input [look at 'huh' bubbletea library]
+		chatDb:     db,
 	}
 }
 
@@ -91,18 +101,19 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 
-			// Need to connect to a client still, returns peerConnType
+			// Need to connect to a client still
 			suffix, success = parseStringSuffixFromPrefix(m.input, "connect to port ")
 			if success && m.peerConn == nil {
 				m.input = ""
 				return m, createPeerConnCmd("", suffix)
 			}
 
-			// Send messages command returns rawSentMessage
+			// Send messages command
 			if m.input != "" && m.peerConn != nil {
 				temp_input := m.input
 				m.input = ""
-				return m, sendMessageCmd(m.peerConn, temp_input)
+				message := createMessage(temp_input, m.username, "Pickle", Outgoing)
+				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.chatDb)
 			}
 
 			log.Printf("Not all cases have been handled. There is an issue here.")
@@ -111,19 +122,28 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			m.input += msg.String()
 		}
-	case rawReceivedMessage:
-		msg := msg
-		m.messages = append(m.messages, msg.Text)
-		return m, handleListenerConnCmd(m.listenerConn)
-	case rawSentMessage:
-		m.messages = append(m.messages, msg.Text)
+	case Message:
+		if msg.Direction == Outgoing {
+			m.messages = append(m.messages, msg)
+		} else if msg.Direction == Incoming {
+			m.messages = append(m.messages, msg)
+			return m, handleListenerConnCmd(m.listenerConn)
+		} else {
+			log.Fatal("There should not be any other directions. Crashing program.")
+		}
 	case peerConn:
 		m.peerConn = msg.conn // TODO: Make into an array appending
 	case listenerConn:
 		log.Println("Connection read from listener on port: ", m.portNumber)
 		m.listenerConn = msg.conn // TODO: Make into an array appending
 		return m, handleListenerConnCmd(m.listenerConn)
-	case listenerType:
+	case incomingJson:
+		return m, handleDbAndReceiveMessageCmd(msg, m.chatDb)
+	case errorOnMessageSend:
+		// Do something here based on that
+	case errorOnMessageReceive:
+		// Do something here based on that
+	case listener:
 		log.Println("Listener started on port: ", m.portNumber)
 		m.listener = msg
 		// Read new connections
@@ -135,11 +155,11 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *ChatModel) View() string {
 	// TODO: Consider asking for port number in a separate model/view
-	var chatView string = "Type 'start chat my port ' and the port number for your server to join the chatroom." +
-		"\nThen type 'connect to port ' and follow it with a port number. (Type 'exit' to quit.)\n\n"
+	var chatView string = "Type 'start chat my port ' and the port number for your server to join the chatroom.\n" +
+		"Then type 'connect to port ' and follow it with a port number. (Type 'exit' to quit.)\n\n"
 
-	for _, msg := range m.messages {
-		chatView += string(msg) + "\n----------------------\n"
+	for _, message := range m.messages {
+		chatView += fmt.Sprintf("%s\n%s: %s\n-----------------\n", message.Timestamp.Format("2025-02-05 13:08"), message.Sender, message.Text)
 	}
 
 	return fmt.Sprintf("\n %s\n%s", chatView, m.input)
@@ -192,7 +212,7 @@ func startListenerCmd(port string) tea.Cmd {
 	}
 }
 
-func startServer(port string) listenerType {
+func startServer(port string) listener {
 	for {
 		listener, err := net.Listen("tcp", ":"+port)
 		if err != nil {
@@ -220,89 +240,110 @@ func createPeerConnCmd(address string, portNumber string) tea.Cmd {
 
 func handleListenerConnCmd(conn net.Conn) tea.Cmd {
 	return func() tea.Msg {
-		return handleListenerConn(conn)
+		jsonMessage, err := handleListenerConn(conn)
+		if err != nil {
+			return errorOnMessageReceive{err: err}
+		}
+
+		return jsonMessage
 	}
 }
 
-func handleListenerConn(conn net.Conn) Message {
+func handleListenerConn(conn net.Conn) (incomingJson, error) {
 	reader := bufio.NewReader(conn)
 
 	for {
 		log.Println("Listener is handling connection, awaiting read: ", conn.LocalAddr().String())
-		message, err := reader.ReadBytes('\n')
+		jsonMessage, err := reader.ReadBytes('\n')
 
 		if err != nil {
 			log.Println("Friend disconnected:", err)
-			// TODO: Should be sending Struct instead of string for more info
-			return Message{Text: "Friend disconnected."}
+			return jsonMessage, err
 		}
 
-		var receivedMsg Message //make this a struct
-		err = json.Unmarshal(message, &receivedMsg)
-		if err != nil {
-			log.Println("Invalid message received:", message)
-			continue
-		}
-
-		log.Println("Handle listener message received as: ", receivedMsg.Text)
-		// TODO: Should be sending Struct instead of string for more info
-		return receivedMsg
+		log.Println("Handle listener message received as: ", jsonMessage)
+		return jsonMessage, nil
 	}
 }
 
-// func sendMessage(conn net.Conn, text, sender, receiver string) error {
-// 	msg := createMessage(text, sender, receiver)
-// 	jsonData, err := json.Marshal(msg)
-// 	if err != nil {
-// 		return fmt.Errorf("error serializing message: %v", err)
-// 	}
-// }
-// func sendMessageCmd(conn net.Conn, text string) tea.Cmd {
-// 	return func() tea.Msg {
-// 		message := sendMessage(conn, text)
-// 		return message
-// 	}
-// }
-
-// TODO: Refactor to be Struct returned, not raw string
-// TODO: Break sendMessage into two functions; one to create a Message struct,
-// TODO: another to actually send the JSON parsed message
-// TODO: OR rename function to properly capture meaning of what it does
-// NOTE: which is storing raw text into a crafted Message struct, serializing, and sending
-
-// Example: prepareAndSendMessage
-
-// Sends a message to connection `conn`, raw `text` message to send
-// During this process, converts into a serialized JSON
-// Also, stores Message into database
-func createMessage(text, sender, receiver string) Message {
+func createMessage(text, sender, receiver string, direction direction) Message {
 	return Message{
 		Text:      text,
 		Sender:    sender,
 		Receiver:  receiver,
+		Direction: direction,
 		Timestamp: time.Now(),
 	}
 }
 
-func prepareAndSendMessage(text, sender, receiver string, conn net.Conn) ([]byte, error) {
-	msg := createMessage(text, sender, receiver)
-
-	jsonData, err := json.Marshal(msg)
-	if err != nil {
-		return nil, fmt.Errorf("error serialize message: %v", err)
-	}
-
-	_, err = conn.Write(append(jsonData, '\n'))
-	if err != nil {
-		return nil, fmt.Errorf("error send message: %v", err)
-	}
-	return jsonData, nil
+func serializeMessage(message Message) ([]byte, error) {
+	jsonData, err := json.Marshal(message)
+	return jsonData, err
 }
 
-// func sendMessage(conn net.Conn, text string) rawSentMessage {
-// 	msg := Message{
-// 		Text:      text,
-// 		Sender:    "User1",
-// 		Receiver:  "User2",
-// 		Timestamp: time.Now(),
-// 	}
+func deserializeJsonMessage(jsonData []byte) (Message, error) {
+	var msg Message
+	err := json.Unmarshal(jsonData, &msg)
+	return msg, err
+}
+
+func handleDbAndReceiveMessage(jsonData []byte, db *ChatDb) (Message, error) {
+	msg, err := deserializeJsonMessage(jsonData)
+	if err != nil {
+		log.Println("Error deserializing JSON message: ", err)
+		return msg, err
+	}
+
+	msg.Direction = Incoming
+
+	err = db.saveMessage(msg)
+	if err != nil {
+		log.Println("Error saving message to DB: ", err)
+		return msg, err
+	}
+
+	return msg, nil
+}
+
+func handleDbAndSendMessage(msg Message, conn net.Conn, db *ChatDb) (Message, error) {
+	err := db.saveMessage(msg)
+	if err != nil {
+		log.Println("Error saving message to DB: ", err)
+	}
+
+	jsonData, err := serializeMessage(msg)
+	if err != nil {
+		log.Println("Error marshalling message: ", err)
+		return msg, err
+	}
+
+	_, err = conn.Write(append(jsonData, '\n')) // Add new line for reader to actually parse the delimiter appropriately
+	if err != nil {
+		log.Printf("error sending messageL %v", err)
+		return msg, err
+	}
+
+	return msg, nil
+}
+
+func handleDbAndSendMessageCmd(msg Message, conn net.Conn, db *ChatDb) tea.Cmd {
+	return func() tea.Msg {
+		msg, err := handleDbAndSendMessage(msg, conn, db)
+		if err != nil {
+			return errorOnMessageSend{err: err}
+		}
+
+		return msg
+	}
+}
+
+func handleDbAndReceiveMessageCmd(jsonData []byte, db *ChatDb) tea.Cmd {
+	return func() tea.Msg {
+		msg, err := handleDbAndReceiveMessage(jsonData, db)
+		if err != nil {
+			return errorOnMessageReceive{err: err}
+		}
+
+		return msg
+	}
+}

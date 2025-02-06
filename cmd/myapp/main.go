@@ -5,6 +5,7 @@ import (
 	"bokkoli/internal/message"
 	"fmt"
 	"log"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -95,6 +96,13 @@ func (m mainModel) View() string {
 }
 
 func main() {
+	f, err := tea.LogToFile("debug.log", "debug")
+	if err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+
 	fmt.Println("Welcome to Bokkoli!")
 	p := tea.NewProgram(newModel())
 

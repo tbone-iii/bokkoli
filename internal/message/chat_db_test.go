@@ -53,6 +53,7 @@ func TestSaveMessage(t *testing.T) {
 		Text:      testText,
 		Sender:    "Somy",
 		Receiver:  "Pickle",
+		Direction: Outgoing,
 		Timestamp: time.Now(),
 	}
 
@@ -74,14 +75,14 @@ func TestSaveMessage(t *testing.T) {
 	}
 
 	// Read the DB file that was created and make sure values were added
-	rows, err := chatDB.db.Query("SELECT text, sender, receiver, timestamp FROM messages")
+	rows, err := chatDB.db.Query("SELECT text, sender, receiver, direction, timestamp FROM messages")
 	if err != nil {
 		t.Error("Got error on select statement: ", err)
 	}
 
 	var tempMessages Message
 	for rows.Next() {
-		rows.Scan(&tempMessages.Text, &tempMessages.Sender, &tempMessages.Receiver, &tempMessages.Timestamp)
+		rows.Scan(&tempMessages.Text, &tempMessages.Sender, &tempMessages.Receiver, &tempMessages.Direction, &tempMessages.Timestamp)
 		if tempMessages.Text != testText {
 			t.Errorf("Saved message for 'text' is incorrect, expected %s, got %s", testText, tempMessages.Text)
 		}

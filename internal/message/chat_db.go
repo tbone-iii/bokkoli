@@ -7,13 +7,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type ChatDB struct {
+type ChatDb struct {
 	db *sql.DB
 }
 
 const DefaultDbFilePath string = "./bokkoli.db"
 
-func NewChatDB(filePath string) (*ChatDB, error) {
+func NewChatDB(filePath string) (*ChatDb, error) {
 	db, err := sql.Open("sqlite3", filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
@@ -21,7 +21,7 @@ func NewChatDB(filePath string) (*ChatDB, error) {
 	if err := setupSchema(db); err != nil {
 		return nil, fmt.Errorf("failed fot setup schema: %v", err)
 	}
-	return &ChatDB{db: db}, nil //work iwtha reference for ChatDB rather than copy
+	return &ChatDb{db: db}, nil //work iwtha reference for ChatDB rather than copy
 }
 
 func setupSchema(db *sql.DB) error {
@@ -31,6 +31,7 @@ func setupSchema(db *sql.DB) error {
         text TEXT NOT NULL,
         sender TEXT NOT NULL,
         receiver TEXT NOT NULL,
+		direction TEXT NOT NULL,
         timestamp DATETIME NOT NULL
     );`
 	_, err := db.Exec(schema)
@@ -40,13 +41,13 @@ func setupSchema(db *sql.DB) error {
 	return nil
 }
 
-func (chatdb *ChatDB) saveMessage(msg Message) error {
+func (chatdb *ChatDb) saveMessage(msg Message) error {
 	query := `
-	INSERT INTO messages (text, sender, receiver, timestamp)
-	VALUES (?, ?, ?, ?)
+	INSERT INTO messages (text, sender, receiver, direction, timestamp)
+	VALUES (?, ?, ?, ?, ?)
 	`
 
-	_, err := chatdb.db.Exec(query, msg.Text, msg.Sender, msg.Receiver, msg.Timestamp)
+	_, err := chatdb.db.Exec(query, msg.Text, msg.Sender, msg.Receiver, msg.Direction, msg.Timestamp)
 	if err != nil {
 		return fmt.Errorf("failed to save message: %v", err)
 	}

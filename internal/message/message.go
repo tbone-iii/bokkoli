@@ -10,7 +10,23 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
+
+var timestampStyle = lipgloss.NewStyle().Italic(true)
+
+var senderStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(lipgloss.Color("#FAFAFA")).
+	Background(lipgloss.Color("#7D56F4"))
+
+var messageStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.RoundedBorder()).
+	MaxWidth(30)
+var inputStyle = lipgloss.NewStyle().Faint(true)
+var inputLineIndicator = lipgloss.NewStyle().
+	Blink(true).
+	Foreground(lipgloss.Color("#1379af"))
 
 type peerConn struct {
 	conn net.Conn
@@ -123,12 +139,13 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.input += msg.String()
 		}
 	case Message:
-		if msg.Direction == Outgoing {
+		switch msg.Direction {
+		case Outgoing:
 			m.messages = append(m.messages, msg)
-		} else if msg.Direction == Incoming {
+		case Incoming:
 			m.messages = append(m.messages, msg)
 			return m, handleListenerConnCmd(m.listenerConn)
-		} else {
+		default:
 			log.Fatal("There should not be any other directions. Crashing program.")
 		}
 	case peerConn:
@@ -155,14 +172,26 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *ChatModel) View() string {
 	// TODO: Consider asking for port number in a separate model/view
-	var chatView string = "Type 'start chat my port ' and the port number for your server to join the chatroom.\n" +
-		"Then type 'connect to port ' and follow it with a port number. (Type 'exit' to quit.)\n\n"
 
+	var chatView strings.Builder
+	chatView.WriteString("Type 'start chat my port ' and the port number for your server to join the chatroom.\n")
+	chatView.WriteString("Then type 'connect to port ' and follow it with a port number. (Type 'exit' to quit.)\n\n")
+
+	// TODO: If the time is the same and user is the same, join all the messages into one block
+	// TODO: If the time is different and the user is the same, show only the first time
+	// TODO: Perhaps make the last message blink?
 	for _, message := range m.messages {
-		chatView += fmt.Sprintf("%s\n%s: %s\n-----------------\n", message.Timestamp.Format("2025-02-05 13:08"), message.Sender, message.Text)
+		tempChatView := fmt.Sprintf(
+			"%s\n%s: %s",
+			timestampStyle.Render(message.Timestamp.Format("2006-01-02 15:04")),
+			senderStyle.Render(message.Sender),
+			message.Text,
+		)
+		chatView.WriteString(messageStyle.Render(tempChatView) + "\n")
 	}
 
-	return fmt.Sprintf("\n %s\n%s", chatView, m.input)
+	indicator := inputLineIndicator.Render("> ")
+	return fmt.Sprintf("%s\n\n%s", chatView.String(), inputStyle.Render(indicator, m.input))
 }
 
 // Removes the last n number of characters from a string and returns the new string.

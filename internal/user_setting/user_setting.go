@@ -80,7 +80,7 @@ func (m Model) View() string {
 	if m.form.State == huh.StateCompleted {
 		username := m.form.GetString("class")
 		port := m.form.GetString("level")
-		return fmt.Sprintf("You selected: %s, Lvl. %s", username, port)
+		return fmt.Sprintf("You selected: username. %s, port. %s", username, port)
 	}
 	return m.form.View()
 }

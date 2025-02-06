@@ -43,13 +43,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if m.cursor == 0 {
 				return m, func() tea.Msg { return "start chatting" }
 			}
-
-			// _, ok := m.selected[m.cursor]
-			// if ok {
-			// 	delete(m.selected, m.cursor)
-			// } else {
-			// 	m.selected[m.cursor] = struct{}{}
-			// }
 		}
 	}
 
@@ -59,10 +52,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	s := strings.Builder{}
 	s.WriteString("Bokkoli\n\n")
-
-	// cursorStyle := lipgloss.NewStyle().
-	//  Foreground(lipgloss.Color("69")).
-	//  Bold(true)
 
 	selectedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("34")).

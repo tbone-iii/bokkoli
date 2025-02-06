@@ -78,8 +78,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	if m.form.State == huh.StateCompleted {
-		username := m.form.GetString("class")
-		port := m.form.GetString("level")
+		username := m.form.GetString("username")
+		port := m.form.GetString("port")
 		return fmt.Sprintf("You selected: username. %s, port. %s", username, port)
 	}
 	return m.form.View()

@@ -12,11 +12,23 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type (
-	rawReceivedMessage string // TODO: Refactor to a struct
-	rawSentMessage     string
-	listenerType       net.Listener
-)
+type listenerType struct {
+	net.Listener
+}
+
+// type rawReceivedMessage struct {
+// 	Text      string
+// 	Sender    string
+// 	Receiver  string
+// 	Timestamp time.Time
+// }
+
+// type RawSentMessage struct {
+// 	Text      string
+// 	Sender    string
+// 	Receiver  string
+// 	Timestamp time.Time
+// }
 
 type peerConn struct {
 	conn net.Conn
@@ -100,10 +112,11 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.input += msg.String()
 		}
 	case rawReceivedMessage:
-		m.messages = append(m.messages, string(msg))
+		msg := msg
+		m.messages = append(m.messages, msg.Text)
 		return m, handleListenerConnCmd(m.listenerConn)
 	case rawSentMessage:
-		m.messages = append(m.messages, string(msg))
+		m.messages = append(m.messages, msg.Text)
 	case peerConn:
 		m.peerConn = msg.conn // TODO: Make into an array appending
 	case listenerConn:
@@ -211,7 +224,7 @@ func handleListenerConnCmd(conn net.Conn) tea.Cmd {
 	}
 }
 
-func handleListenerConn(conn net.Conn) rawReceivedMessage {
+func handleListenerConn(conn net.Conn) Message {
 	reader := bufio.NewReader(conn)
 
 	for {
@@ -221,10 +234,10 @@ func handleListenerConn(conn net.Conn) rawReceivedMessage {
 		if err != nil {
 			log.Println("Friend disconnected:", err)
 			// TODO: Should be sending Struct instead of string for more info
-			return rawReceivedMessage("Friend disconnected.")
+			return Message{Text: "Friend disconnected."}
 		}
 
-		var receivedMsg Message
+		var receivedMsg Message //make this a struct
 		err = json.Unmarshal(message, &receivedMsg)
 		if err != nil {
 			log.Println("Invalid message received:", message)
@@ -233,16 +246,23 @@ func handleListenerConn(conn net.Conn) rawReceivedMessage {
 
 		log.Println("Handle listener message received as: ", receivedMsg.Text)
 		// TODO: Should be sending Struct instead of string for more info
-		return rawReceivedMessage(receivedMsg.Text)
+		return receivedMsg
 	}
 }
 
-func sendMessageCmd(conn net.Conn, text string) tea.Cmd {
-	return func() tea.Msg {
-		message := sendMessage(conn, text)
-		return message
-	}
-}
+// func sendMessage(conn net.Conn, text, sender, receiver string) error {
+// 	msg := createMessage(text, sender, receiver)
+// 	jsonData, err := json.Marshal(msg)
+// 	if err != nil {
+// 		return fmt.Errorf("error serializing message: %v", err)
+// 	}
+// }
+// func sendMessageCmd(conn net.Conn, text string) tea.Cmd {
+// 	return func() tea.Msg {
+// 		message := sendMessage(conn, text)
+// 		return message
+// 	}
+// }
 
 // TODO: Refactor to be Struct returned, not raw string
 // TODO: Break sendMessage into two functions; one to create a Message struct,
@@ -255,31 +275,34 @@ func sendMessageCmd(conn net.Conn, text string) tea.Cmd {
 // Sends a message to connection `conn`, raw `text` message to send
 // During this process, converts into a serialized JSON
 // Also, stores Message into database
-func sendMessage(conn net.Conn, text string) rawSentMessage {
-	msg := Message{
+func createMessage(text, sender, receiver string) Message {
+	return Message{
 		Text:      text,
-		Sender:    "User1",
-		Receiver:  "User2",
+		Sender:    sender,
+		Receiver:  receiver,
 		Timestamp: time.Now(),
 	}
+}
 
-	log.Printf("Crafted message into Struct as: %s, %s", msg.Text, msg.Timestamp)
-
-	// TODO: refactor out into a DB handle in function args/params
-	chatDB, err := NewChatDB(DefaultDbFilePath)
-	if err != nil {
-		log.Println("Error on opening DB: ", err)
-	}
-
-	chatDB.saveMessage(msg)
+func prepareAndSendMessage(text, sender, receiver string, conn net.Conn) ([]byte, error) {
+	msg := createMessage(text, sender, receiver)
 
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
-		log.Println("Error marshalling message:", err)
-		return rawSentMessage("Error marshalling! " + text)
+		return nil, fmt.Errorf("error serialize message: %v", err)
 	}
 
-	conn.Write(append(jsonData, '\n')) // Add new line for reader to actually parse the delimiter appropriately
-
-	return rawSentMessage(text)
+	_, err = conn.Write(append(jsonData, '\n'))
+	if err != nil {
+		return nil, fmt.Errorf("error send message: %v", err)
+	}
+	return jsonData, nil
 }
+
+// func sendMessage(conn net.Conn, text string) rawSentMessage {
+// 	msg := Message{
+// 		Text:      text,
+// 		Sender:    "User1",
+// 		Receiver:  "User2",
+// 		Timestamp: time.Now(),
+// 	}

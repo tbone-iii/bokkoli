@@ -21,7 +21,7 @@ func NewChatDB(filePath string) (*ChatDB, error) {
 	if err := setupSchema(db); err != nil {
 		return nil, fmt.Errorf("failed fot setup schema: %v", err)
 	}
-	return &ChatDB{db: db}, nil
+	return &ChatDB{db: db}, nil //work iwtha reference for ChatDB rather than copy
 }
 
 func setupSchema(db *sql.DB) error {

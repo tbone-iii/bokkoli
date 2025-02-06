@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -94,21 +93,9 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.portNumber = suffix
 				return m, startListenerCmd(suffix)
-			// Start and return listener
-			suffix, success := parseStringSuffixFromPrefix(m.input, "start chat my port ")
-			if success && m.listener == nil {
-				m.input = ""
-				if suffix == "" {
-					suffix = m.portNumber
-				}
-				m.portNumber = suffix
-				return m, startListenerCmd(suffix)
 			}
 
-
 			if m.input == "exit" {
-				defer m.peerConn.Close()
-				defer m.listenerConn.Close()
 				defer m.peerConn.Close()
 				defer m.listenerConn.Close()
 				return m, tea.Quit
@@ -129,9 +116,6 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.chatDb)
 			}
 
-			log.Printf("Not all cases have been handled. There is an issue here.")
-		case "backspace":
-			m.input = deleteLastNCharacters(m.input, 1)
 			log.Printf("Not all cases have been handled. There is an issue here.")
 		case "backspace":
 			m.input = deleteLastNCharacters(m.input, 1)
@@ -181,36 +165,6 @@ func (m *ChatModel) View() string {
 	return fmt.Sprintf("\n %s\n%s", chatView, m.input)
 }
 
-// Removes the last n number of characters from a string and returns the new string.
-// 's' is defined as some string
-func deleteLastNCharacters(s string, n int) string {
-	size := len(s)
-
-	if size-n < 0 {
-		return s
-	}
-
-	s = s[:size-n]
-	return s
-}
-
-// Return a True or False on success for whether a prefix was found in the result.
-func parseStringSuffixFromPrefix(s string, prefix string) (string, bool) {
-	suffix, success := strings.CutPrefix(strings.ToLower(s), prefix)
-	if !success {
-		return "", false
-	}
-
-	return suffix, true
-}
-
-func readListenerCmd(listener net.Listener) tea.Cmd {
-	return func() tea.Msg {
-		return readListener(listener)
-	}
-}
-
-func readListener(listener net.Listener) listenerConn {
 // Removes the last n number of characters from a string and returns the new string.
 // 's' is defined as some string
 func deleteLastNCharacters(s string, n int) string {

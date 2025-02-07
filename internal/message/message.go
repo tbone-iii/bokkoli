@@ -82,12 +82,18 @@ func New() *ChatModel {
 		log.Println("Error upon DB creation: ", err)
 	}
 
+	// TODO: Extract values from dbHandler for portNumber and userName
+	// Create new function in setup_db.go called "readPortAndUsername", extract those values
+	// If they're empty, use defaults below in struct, otherwise use the values as defaults.
+
+	// TODO: (potential refactor) wrap all methods into dbHandler struct, including chat_db, setup_db functions
+
 	return &ChatModel{
 		messages:   []Message{},
 		input:      "",
 		isClient:   false,
 		portNumber: "8080",
-		username:   "PickledSock20", // TODO: Pull this info from DB or user input [look at 'huh' bubbletea library]
+		username:   "Somy", // TODO: Pull this info from DB or user input [look at 'huh' bubbletea library]
 		dbHandler:  dbHandler,
 	}
 }

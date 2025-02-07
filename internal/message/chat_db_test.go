@@ -1,6 +1,7 @@
 package message
 
 import (
+	"bokkoli/internal/db"
 	"log"
 	"os"
 	"slices"
@@ -18,18 +19,18 @@ func removeTempFile(filePath string) {
 
 func TestSetupSchema(t *testing.T) {
 	filePath := "./test-bokkoli.db"
-	chatDB, err := NewChatDB(filePath)
+	dbHandler, err := db.NewDbHandler(filePath)
 	if err != nil {
 		t.Error("Got an error on DB creation: ", err)
 	}
 
-	err = setupSchema(chatDB.db)
+	err = setupSchema(dbHandler)
 	if err != nil {
 		t.Error("Got an error on DB schema setup: ", err)
 	}
 
 	// Read the DB file that was created and check that the schema is correct
-	rows, err := chatDB.db.Query("SELECT * FROM messages")
+	rows, err := dbHandler.Query("SELECT * FROM messages")
 	if err != nil {
 		t.Error("Got error on select statement: ", err)
 	}
@@ -58,24 +59,23 @@ func TestSaveMessage(t *testing.T) {
 	}
 
 	filePath := "./test-bokkoli.db"
-	chatDB, err := NewChatDB(filePath)
-
+	dbHandler, err := db.NewDbHandler(filePath)
 	if err != nil {
 		t.Error("Got an error on DB creation: ", err)
 	}
 
-	err = setupSchema(chatDB.db)
+	err = setupSchema(dbHandler)
 	if err != nil {
 		t.Error("Got an error on DB schema setup: ", err)
 	}
 
-	err = chatDB.saveMessage(testMessage)
+	err = saveMessage(dbHandler, testMessage)
 	if err != nil {
 		t.Error("Saving message produced an error: ", err)
 	}
 
 	// Read the DB file that was created and make sure values were added
-	rows, err := chatDB.db.Query("SELECT text, sender, receiver, direction, timestamp FROM messages")
+	rows, err := dbHandler.Query("SELECT text, sender, receiver, direction, timestamp FROM messages")
 	if err != nil {
 		t.Error("Got error on select statement: ", err)
 	}

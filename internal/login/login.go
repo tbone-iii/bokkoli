@@ -9,7 +9,7 @@ import (
 )
 
 type Model struct {
-	cursor   int
+	Cursor   int
 	choices  []string
 	selected map[int]struct{}
 }
@@ -32,15 +32,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+			if m.Cursor > 0 {
+				m.Cursor--
 			}
 		case "down", "j":
-			if m.cursor < len(m.choices)-1 {
-				m.cursor++
+			if m.Cursor < len(m.choices)-1 {
+				m.Cursor++
 			}
 		case "enter", " ":
-			if m.cursor == 0 {
+			if m.Cursor == 0 {
 				return m, func() tea.Msg { return "start chatting" }
 			}
 		}
@@ -62,12 +62,12 @@ func (m Model) View() string {
 
 	for i := 0; i < len(m.choices); i++ {
 		itemStyle := defaultStyle
-		if m.cursor == i {
+		if m.Cursor == i {
 			itemStyle = selectedStyle
 		}
 
 		cursor := " "
-		if m.cursor == i {
+		if m.Cursor == i {
 			cursor = "(•)"
 		} else {
 			cursor = "( )"
@@ -77,10 +77,4 @@ func (m Model) View() string {
 	}
 
 	return s.String()
-}
-
-func StartChatting() tea.Cmd {
-	return func() tea.Msg {
-		return "start chatting"
-	}
 }

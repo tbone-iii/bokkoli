@@ -1,6 +1,7 @@
 package message
 
 import (
+	"bokkoli/internal/db"
 	"bufio"
 	"encoding/json"
 	"fmt"
@@ -71,12 +72,12 @@ type ChatModel struct {
 	listener     net.Listener
 	isClient     bool
 	portNumber   string
-	chatDb       *ChatDb
+	dbHandler    *db.DbHandler
 	username     string
 }
 
 func New() *ChatModel {
-	db, err := NewChatDB(DefaultDbFilePath)
+	dbHandler, err := db.NewDbHandler(db.DefaultDbFilePath)
 	if err != nil {
 		log.Println("Error upon DB creation: ", err)
 	}
@@ -87,7 +88,7 @@ func New() *ChatModel {
 		isClient:   false,
 		portNumber: "8080",
 		username:   "Somy", // TODO: Pull this info from DB or user input [look at 'huh' bubbletea library]
-		chatDb:     db,
+		dbHandler:  dbHandler,
 	}
 }
 
@@ -129,7 +130,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				temp_input := m.input
 				m.input = ""
 				message := createMessage(temp_input, m.username, "Pickle", Outgoing)
-				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.chatDb)
+				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.dbHandler)
 			}
 
 			log.Printf("Not all cases have been handled. There is an issue here.")
@@ -155,7 +156,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.listenerConn = msg.conn // TODO: Make into an array appending
 		return m, handleListenerConnCmd(m.listenerConn)
 	case incomingJson:
-		return m, handleDbAndReceiveMessageCmd(msg, m.chatDb)
+		return m, handleDbAndReceiveMessageCmd(msg, m.dbHandler)
 	case errorOnMessageSend:
 		// Do something here based on that
 	case errorOnMessageReceive:
@@ -316,7 +317,7 @@ func deserializeJsonMessage(jsonData []byte) (Message, error) {
 	return msg, err
 }
 
-func handleDbAndReceiveMessage(jsonData []byte, db *ChatDb) (Message, error) {
+func handleDbAndReceiveMessage(jsonData []byte, dbHandler *db.DbHandler) (Message, error) {
 	msg, err := deserializeJsonMessage(jsonData)
 	if err != nil {
 		log.Println("Error deserializing JSON message: ", err)
@@ -325,7 +326,7 @@ func handleDbAndReceiveMessage(jsonData []byte, db *ChatDb) (Message, error) {
 
 	msg.Direction = Incoming
 
-	err = db.saveMessage(msg)
+	err = saveMessage(dbHandler, msg)
 	if err != nil {
 		log.Println("Error saving message to DB: ", err)
 		return msg, err
@@ -334,8 +335,8 @@ func handleDbAndReceiveMessage(jsonData []byte, db *ChatDb) (Message, error) {
 	return msg, nil
 }
 
-func handleDbAndSendMessage(msg Message, conn net.Conn, db *ChatDb) (Message, error) {
-	err := db.saveMessage(msg)
+func handleDbAndSendMessage(msg Message, conn net.Conn, dbHandler *db.DbHandler) (Message, error) {
+	err := saveMessage(dbHandler, msg)
 	if err != nil {
 		log.Println("Error saving message to DB: ", err)
 	}
@@ -355,9 +356,9 @@ func handleDbAndSendMessage(msg Message, conn net.Conn, db *ChatDb) (Message, er
 	return msg, nil
 }
 
-func handleDbAndSendMessageCmd(msg Message, conn net.Conn, db *ChatDb) tea.Cmd {
+func handleDbAndSendMessageCmd(msg Message, conn net.Conn, dbHandler *db.DbHandler) tea.Cmd {
 	return func() tea.Msg {
-		msg, err := handleDbAndSendMessage(msg, conn, db)
+		msg, err := handleDbAndSendMessage(msg, conn, dbHandler)
 		if err != nil {
 			return errorOnMessageSend{err: err}
 		}
@@ -366,9 +367,9 @@ func handleDbAndSendMessageCmd(msg Message, conn net.Conn, db *ChatDb) tea.Cmd {
 	}
 }
 
-func handleDbAndReceiveMessageCmd(jsonData []byte, db *ChatDb) tea.Cmd {
+func handleDbAndReceiveMessageCmd(jsonData []byte, dbHandler *db.DbHandler) tea.Cmd {
 	return func() tea.Msg {
-		msg, err := handleDbAndReceiveMessage(jsonData, db)
+		msg, err := handleDbAndReceiveMessage(jsonData, dbHandler)
 		if err != nil {
 			return errorOnMessageReceive{err: err}
 		}

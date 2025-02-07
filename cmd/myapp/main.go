@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -36,7 +37,7 @@ type mainModel struct {
 	state sessionState
 	login login.Model
 	chat  *message.ChatModel
-	setup *setup.Model
+	setup *setup.SetupModel
 }
 
 func newModel() mainModel {
@@ -63,9 +64,13 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if msg.String() == "enter" && m.state == loginView {
-			m.state = chatView
-			// Here you'll want to start up the chat room
-			m.chat = message.New()
+			switch m.login.Cursor {
+			case 0:
+				m.state = chatView
+			case 1:
+				log.Println("Entered setup view state.")
+				m.state = setupView
+			}
 		}
 
 	}
@@ -86,22 +91,28 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	case setupView:
 		var updatedSetup tea.Model
-		updatedSetup, cmd = m.chat.Update(msg)
+		updatedSetup, cmd = m.setup.Update(msg)
 
-		if Model, ok := updatedSetup.(*setup.Model); ok {
-			m.setup = Model
+		if setup, ok := updatedSetup.(setup.SetupModel); ok {
+			m.setup = &setup
 		} else {
-			log.Println("Unexpected type assertion failure for Model")
+			log.Println("Unexpected type assertion failure, expected setup.SetupModel, got ", reflect.TypeOf(updatedSetup))
 		}
+
+		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)
 }
 
 func (m mainModel) View() string {
-	if m.state == chatView {
+	switch m.state {
+	case chatView:
 		return m.chat.View()
+	case setupView:
+		return m.setup.View()
 	}
+
 	return lipgloss.JoinVertical(lipgloss.Left,
 		focusedModelStyle.Render(m.login.View()),
 		helpStyle.Render("\nPress ↑/↓ to navigate • Press Enter to select • Press Q to quit"),

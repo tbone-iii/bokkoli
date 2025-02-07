@@ -3,6 +3,7 @@ package main
 import (
 	"bokkoli/internal/login"
 	"bokkoli/internal/message"
+	"bokkoli/internal/setup"
 	"fmt"
 	"log"
 	"os"
@@ -28,18 +29,21 @@ type sessionState uint
 const (
 	loginView sessionState = iota
 	chatView
+	setupView
 )
 
 type mainModel struct {
 	state sessionState
 	login login.Model
 	chat  *message.ChatModel
+	setup *setup.Model
 }
 
 func newModel() mainModel {
 	m := mainModel{state: loginView}
 	m.login = login.New()
 	m.chat = message.New()
+	m.setup = setup.New()
 	return m
 }
 
@@ -80,6 +84,15 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			log.Println("Unexpected type assertion failure for ChatModel")
 		}
 		cmds = append(cmds, cmd)
+	case setupView:
+		var updatedSetup tea.Model
+		updatedSetup, cmd = m.chat.Update(msg)
+
+		if Model, ok := updatedSetup.(*setup.Model); ok {
+			m.setup = Model
+		} else {
+			log.Println("Unexpected type assertion failure for Model")
+		}
 	}
 
 	return m, tea.Batch(cmds...)

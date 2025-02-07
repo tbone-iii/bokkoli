@@ -1,8 +1,9 @@
-package user_setting
+package setup
 
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -20,19 +21,17 @@ type Model struct {
 
 func isEmpty(input string) error {
 	if input == "" {
-		return errors.New("username cannot be empty")
+		return errors.New("input cannot be empty")
 	}
 	return nil
 }
 
-func NewModel() Model {
-	return Model{
+func New() *Model {
+	return &Model{
 		form: huh.NewForm(
 			huh.NewGroup(
 				huh.NewInput().
-					Key("username").
-					Title("Username").
-					Prompt("?").
+					Title("Input username").
 					Validate(isEmpty).
 					Value(&username),
 			),
@@ -45,12 +44,14 @@ func NewModel() Model {
 			//save NewInput port values in NewSelect options
 			huh.NewGroup(
 				huh.NewSelect[string]().
-					Key("port").
-					Options(
-						huh.NewOption("user input 1", "1"),
-						huh.NewOption("user input 2", "2"),
-						huh.NewOption("user input 3", "3"),
-					).
+					Title("Select port").
+					OptionsFunc(func() []huh.Option[string] {
+						var options []huh.Option[string]
+						for i := 1; i <= 4; i++ {
+							options = append(options, huh.NewOption("value-"+strconv.Itoa(i), "value-"+strconv.Itoa(i)))
+						}
+						return options
+					}, nil). // Corrected parenthesis here
 					Value(&portNumber),
 			),
 			huh.NewGroup(

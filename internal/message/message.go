@@ -87,7 +87,7 @@ func New() *ChatModel {
 		input:      "",
 		isClient:   false,
 		portNumber: "8080",
-		username:   "Somy", // TODO: Pull this info from DB or user input [look at 'huh' bubbletea library]
+		username:   "PickledSock20", // TODO: Pull this info from DB or user input [look at 'huh' bubbletea library]
 		dbHandler:  dbHandler,
 	}
 }

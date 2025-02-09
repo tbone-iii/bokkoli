@@ -52,3 +52,22 @@ func NewDbHandler(filePath string) (*DbHandler, error) {
 
 	return &DbHandler{db: db}, nil
 }
+
+func (handler DbHandler) SetupSchemas() error {
+	schemas := []func() error{
+		handler.setupMessageSchema,
+		handler.setupSetupSchema,
+	}
+
+	for _, setupFn := range schemas {
+		if err := setupFn(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Close the DB connection
+func (handler DbHandler) Close() error {
+	return handler.db.Close()
+}

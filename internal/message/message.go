@@ -45,27 +45,13 @@ type errorOnMessageSend struct {
 }
 
 type (
-	direction    string
 	listener     net.Listener
 	incomingJson []byte
 )
 
-const (
-	Outgoing direction = "outgoing"
-	Incoming direction = "incoming"
-)
-
-type Message struct {
-	Text      string    `json:"text"`
-	Sender    string    `json:"sender"`
-	Receiver  string    `json:"receiver"`
-	Direction direction `json:"direction"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
 type ChatModel struct {
 	// TODO: If # of fields increase, break down into grouped sub-structs
-	messages     []Message
+	messages     []db.Message
 	input        string
 	peerConn     net.Conn // TODO: You will implement an array of peers
 	listenerConn net.Conn
@@ -79,21 +65,30 @@ type ChatModel struct {
 func New() *ChatModel {
 	dbHandler, err := db.NewDbHandler(db.DefaultDbFilePath)
 	if err != nil {
-		log.Println("Error upon DB creation: ", err)
+		log.Fatal("Error upon DB creation: ", err)
 	}
 
-	// TODO: Extract values from dbHandler for portNumber and userName
-	// Create new function in setup_db.go called "readPortAndUsername", extract those values
-	// If they're empty, use defaults below in struct, otherwise use the values as defaults.
+	err = dbHandler.SetupSchemas()
+	if err != nil {
+		log.Fatal("Error upon schema creation: ", err)
+	}
 
-	// TODO: (potential refactor) wrap all methods into dbHandler struct, including chat_db, setup_db functions
+	var portNumber string = "8080"
+	var username string = "DefaultUser"
+
+	setup, err := dbHandler.ReadSetup()
+	if err == nil {
+		portNumber = setup.Port
+		username = setup.Username
+		log.Println("Setting port number and username read from DB: ", portNumber, username)
+	}
 
 	return &ChatModel{
-		messages:   []Message{},
+		messages:   []db.Message{},
 		input:      "",
 		isClient:   false,
-		portNumber: "8080",
-		username:   "Somy", // TODO: Pull this info from DB or user input [look at 'huh' bubbletea library]
+		portNumber: portNumber,
+		username:   username,
 		dbHandler:  dbHandler,
 	}
 }
@@ -135,7 +130,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input != "" && m.peerConn != nil {
 				temp_input := m.input
 				m.input = ""
-				message := createMessage(temp_input, m.username, "Pickle", Outgoing)
+				message := createMessage(temp_input, m.username, "Pickle", db.Outgoing)
 				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.dbHandler)
 			}
 
@@ -145,11 +140,11 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			m.input += msg.String()
 		}
-	case Message:
+	case db.Message:
 		switch msg.Direction {
-		case Outgoing:
+		case db.Outgoing:
 			m.messages = append(m.messages, msg)
-		case Incoming:
+		case db.Incoming:
 			m.messages = append(m.messages, msg)
 			return m, handleListenerConnCmd(m.listenerConn)
 		default:
@@ -302,8 +297,8 @@ func handleListenerConn(conn net.Conn) (incomingJson, error) {
 	}
 }
 
-func createMessage(text, sender, receiver string, direction direction) Message {
-	return Message{
+func createMessage(text, sender, receiver string, direction db.Direction) db.Message {
+	return db.Message{
 		Text:      text,
 		Sender:    sender,
 		Receiver:  receiver,
@@ -312,59 +307,59 @@ func createMessage(text, sender, receiver string, direction direction) Message {
 	}
 }
 
-func serializeMessage(message Message) ([]byte, error) {
+func serializeMessage(message db.Message) ([]byte, error) {
 	jsonData, err := json.Marshal(message)
 	return jsonData, err
 }
 
-func deserializeJsonMessage(jsonData []byte) (Message, error) {
-	var msg Message
-	err := json.Unmarshal(jsonData, &msg)
-	return msg, err
+func deserializeJsonMessage(jsonData []byte) (db.Message, error) {
+	var message db.Message
+	err := json.Unmarshal(jsonData, &message)
+	return message, err
 }
 
-func handleDbAndReceiveMessage(jsonData []byte, dbHandler *db.DbHandler) (Message, error) {
-	msg, err := deserializeJsonMessage(jsonData)
+func handleDbAndReceiveMessage(jsonData []byte, dbHandler *db.DbHandler) (db.Message, error) {
+	message, err := deserializeJsonMessage(jsonData)
 	if err != nil {
 		log.Println("Error deserializing JSON message: ", err)
-		return msg, err
+		return message, err
 	}
 
-	msg.Direction = Incoming
+	message.Direction = db.Incoming
 
-	err = saveMessage(dbHandler, msg)
+	err = dbHandler.SaveMessage(message)
 	if err != nil {
 		log.Println("Error saving message to DB: ", err)
-		return msg, err
+		return message, err
 	}
 
-	return msg, nil
+	return message, nil
 }
 
-func handleDbAndSendMessage(msg Message, conn net.Conn, dbHandler *db.DbHandler) (Message, error) {
-	err := saveMessage(dbHandler, msg)
+func handleDbAndSendMessage(message db.Message, conn net.Conn, dbHandler *db.DbHandler) (db.Message, error) {
+	err := dbHandler.SaveMessage(message)
 	if err != nil {
 		log.Println("Error saving message to DB: ", err)
 	}
 
-	jsonData, err := serializeMessage(msg)
+	jsonData, err := serializeMessage(message)
 	if err != nil {
 		log.Println("Error marshalling message: ", err)
-		return msg, err
+		return message, err
 	}
 
 	_, err = conn.Write(append(jsonData, '\n')) // Add new line for reader to actually parse the delimiter appropriately
 	if err != nil {
 		log.Printf("error sending messageL %v", err)
-		return msg, err
+		return message, err
 	}
 
-	return msg, nil
+	return message, nil
 }
 
-func handleDbAndSendMessageCmd(msg Message, conn net.Conn, dbHandler *db.DbHandler) tea.Cmd {
+func handleDbAndSendMessageCmd(message db.Message, conn net.Conn, dbHandler *db.DbHandler) tea.Cmd {
 	return func() tea.Msg {
-		msg, err := handleDbAndSendMessage(msg, conn, dbHandler)
+		msg, err := handleDbAndSendMessage(message, conn, dbHandler)
 		if err != nil {
 			return errorOnMessageSend{err: err}
 		}

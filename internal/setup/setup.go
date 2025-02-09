@@ -35,7 +35,7 @@ func New() *SetupModel {
 		log.Fatal("DB failed to open in setup model.")
 	}
 
-	err = setupSchema(dbHandler)
+	err = dbHandler.SetupSchemas()
 	if err != nil {
 		log.Fatal("DB failed to set up schema for setup.")
 	}
@@ -43,7 +43,7 @@ func New() *SetupModel {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title(""),
+				Title(""), //bubbletea Huh bug
 			huh.NewInput().
 				Key("username").
 				Title("Input username").
@@ -80,8 +80,6 @@ func (m SetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Fatal("Wrong type assertion, expected *huh.Form, got ", reflect.TypeOf(form))
 	}
 
-	// TODO: Escape to return to main menu
-
 	// TODO: Even when no is selected on confirm field, form is considered "complete", make sure to check the condition
 	if m.Form.State == huh.StateCompleted && !m.isValidDataAndCompleted {
 		tempUsername := m.Form.GetString("username")
@@ -98,10 +96,10 @@ func (m SetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if validateUsername(tempUsername) && validatePort(tempPort) {
-			err := saveSetup(m.dbHandler, tempPort, tempUsername)
-			// TODO: Improve error message
+			err := m.dbHandler.SaveSetup(tempPort, tempUsername)
+
 			if err != nil {
-				log.Panic("PANICKKKKK!!11, didn't save to DB properly for ", tempPort, tempUsername)
+				log.Panicf("DB did not save record properly to settings.\nPort: %s\nUsername: %s", tempPort, tempUsername)
 			}
 			m.isValidDataAndCompleted = true
 		}
@@ -112,7 +110,6 @@ func (m SetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func validateUsername(username string) bool {
-	// TODO: Add extra restrictions based on mood of the day
 	return username != ""
 }
 

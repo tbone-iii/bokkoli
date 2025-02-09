@@ -1,7 +1,6 @@
-package message
+package db
 
 import (
-	"bokkoli/internal/db"
 	"log"
 	"os"
 	"slices"
@@ -9,22 +8,37 @@ import (
 	"time"
 )
 
-// TODO: Use setup/teardown functions to reduce code duplication
+var dbHandler *DbHandler
 
-func removeTempFile(filePath string) {
+// Setup and teardown function for entire test suite
+func TestMain(m *testing.M) {
+	// Setup
+	filePath := "./test-bokkoli.db"
+	handler, err := NewDbHandler(filePath)
+	if err != nil {
+		log.Fatal("Got an error on DB creation: ", err)
+	}
+	dbHandler = handler
+	code := m.Run()
+
+	// Clean up
+	if err := dbHandler.Close(); err != nil {
+		log.Fatal("DB failed to close.", err)
+	}
+	removeFile(filePath)
+
+	os.Exit(code)
+}
+
+// Useful for cleanup, especially for temporary files
+func removeFile(filePath string) {
 	if err := os.Remove(filePath); err != nil {
-		log.Printf("ERROR: Removing temp file %q: %v", filePath, err)
+		log.Printf("ERROR: Removing file %q: %v", filePath, err)
 	}
 }
 
-func TestSetupSchema(t *testing.T) {
-	filePath := "./test-bokkoli.db"
-	dbHandler, err := db.NewDbHandler(filePath)
-	if err != nil {
-		t.Error("Got an error on DB creation: ", err)
-	}
-
-	err = setupSchema(dbHandler)
+func TestSetupMessageSchema(t *testing.T) {
+	err := dbHandler.setupMessageSchema()
 	if err != nil {
 		t.Error("Got an error on DB schema setup: ", err)
 	}
@@ -43,9 +57,6 @@ func TestSetupSchema(t *testing.T) {
 	if !slices.Contains(cols, "text") {
 		t.Error("'text' field NOT in list of columns. Database malformed.")
 	}
-
-	// Clean up temp file
-	removeTempFile(filePath) // TODO: Get this working
 }
 
 func TestSaveMessage(t *testing.T) {
@@ -58,18 +69,12 @@ func TestSaveMessage(t *testing.T) {
 		Timestamp: time.Now(),
 	}
 
-	filePath := "./test-bokkoli.db"
-	dbHandler, err := db.NewDbHandler(filePath)
-	if err != nil {
-		t.Error("Got an error on DB creation: ", err)
-	}
-
-	err = setupSchema(dbHandler)
+	err := dbHandler.setupMessageSchema()
 	if err != nil {
 		t.Error("Got an error on DB schema setup: ", err)
 	}
 
-	err = saveMessage(dbHandler, testMessage)
+	err = dbHandler.SaveMessage(testMessage)
 	if err != nil {
 		t.Error("Saving message produced an error: ", err)
 	}
@@ -87,7 +92,4 @@ func TestSaveMessage(t *testing.T) {
 			t.Errorf("Saved message for 'text' is incorrect, expected %s, got %s", testText, tempMessages.Text)
 		}
 	}
-
-	// Clean up temp file
-	removeTempFile(filePath) // TODO: Get this working
 }

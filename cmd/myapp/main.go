@@ -61,6 +61,11 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "esc":
+			// rebuilding the chatview is necessary for the setup values to update properly
+			m.state = loginView
+			m.chat = message.New()
+			return m, nil
 		}
 
 		if msg.String() == "enter" && m.state == loginView {

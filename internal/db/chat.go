@@ -1,13 +1,30 @@
-package message
+package db
 
 import (
-	"bokkoli/internal/db"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// TODO: Consider receiver methods for ALL things DBhandler related (e.g. chatdb methods)
-func setupSchema(handler *db.DbHandler) error {
+// TODO: Find import Message struct solution to avoid circular imports
+type Direction string
+
+const (
+	Outgoing Direction = "outgoing"
+	Incoming Direction = "incoming"
+)
+
+type Message struct {
+	Text      string    `json:"text"`
+	Sender    string    `json:"sender"`
+	Receiver  string    `json:"receiver"`
+	Direction Direction `json:"direction"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// TODO: End todo ^^
+
+func (handler *DbHandler) setupMessageSchema() error {
 	query := `
     CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,7 +39,7 @@ func setupSchema(handler *db.DbHandler) error {
 	return err
 }
 
-func saveMessage(handler *db.DbHandler, msg Message) error {
+func (handler *DbHandler) SaveMessage(msg Message) error {
 	query := `
 	INSERT INTO messages (text, sender, receiver, direction, timestamp)
 	VALUES (?, ?, ?, ?, ?);

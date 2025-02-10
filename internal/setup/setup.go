@@ -31,7 +31,6 @@ type SetupModel struct {
 }
 
 func New() *SetupModel {
-	// Reset global variables
 
 	dbHandler, err := db.NewDbHandler(db.DefaultDbFilePath)
 	if err != nil {

@@ -59,7 +59,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			return m, tea.Quit
 		case "esc":
 			// rebuilding the chatview is necessary for the setup values to update properly
@@ -75,7 +75,6 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case 1:
 				log.Println("Entered setup view state.")
 				m.state = setupView
-				m.setup = setup.New()
 			}
 		}
 
@@ -112,6 +111,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m mainModel) View() string {
+
 	switch m.state {
 	case chatView:
 		return m.chat.View()
@@ -121,7 +121,7 @@ func (m mainModel) View() string {
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		focusedModelStyle.Render(m.login.View()),
-		helpStyle.Render("\nPress ↑/↓ to navigate • Press Enter to select • Press Q to quit"),
+		helpStyle.Render("\nPress ↑/↓ to navigate • Press 'Enter/Return' to select • Press 'ctrl + c' to quit program"),
 	)
 }
 
@@ -133,7 +133,8 @@ func main() {
 	}
 	defer f.Close()
 
-	fmt.Println("Welcome to Bokkoli!")
+	fmt.Println("\nWelcome to Bokkoli! :D")
+
 	p := tea.NewProgram(newModel())
 
 	if _, err := p.Run(); err != nil {

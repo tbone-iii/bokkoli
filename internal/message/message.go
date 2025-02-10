@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,16 +15,33 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var timestampStyle = lipgloss.NewStyle().Italic(true)
+const (
+	LOWERBOUND_PORT_NUMBER int = 1024
+	UPPERBOUND_PORT_NUMBER int = 49151
+)
+
+var boldStyle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(lipgloss.Color("#f47d56"))
+
+var timestampStyle = lipgloss.NewStyle().Italic(true).
+	Faint(true).
+	PaddingBottom(2)
 
 var senderStyle = lipgloss.NewStyle().
 	Bold(true).
 	Foreground(lipgloss.Color("#FAFAFA")).
-	Background(lipgloss.Color("#7D56F4"))
+	Background(lipgloss.Color("#a488f7"))
+	// Margin(1, 1, 1)
+
+var maxLineLength = 50 //
 
 var messageStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.RoundedBorder()).
-	MaxWidth(30)
+	MaxWidth(maxLineLength). //
+	Padding(1, 1, 1)
+
+// MaxWidth(30)
 var inputStyle = lipgloss.NewStyle().Faint(true)
 var inputLineIndicator = lipgloss.NewStyle().
 	Blink(true).
@@ -78,8 +96,8 @@ func New() *ChatModel {
 		log.Fatal("Error upon schema creation: ", err)
 	}
 
-	var portNumber string //= "8080"
-	var username string   //= "DefaultUser"
+	var portNumber string
+	var username string
 
 	setup, err := dbHandler.ReadSetup()
 	if err == nil {
@@ -118,7 +136,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, startListenerCmd(suffix)
 			}
 
-			if m.input == "exit" {
+			if m.input == "exit" || m.input == "ctrl+c" {
 				defer m.peerConn.Close()
 				defer m.listenerConn.Close()
 				return m, tea.Quit
@@ -135,7 +153,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input != "" && m.peerConn != nil {
 				temp_input := m.input
 				m.input = ""
-				message := createMessage(temp_input, m.username, "Pickle", db.Outgoing)
+				message := createMessage(temp_input, " "+m.username, "Pickle", db.Outgoing)
 				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.dbHandler)
 			}
 
@@ -181,18 +199,27 @@ func (m *ChatModel) View() string {
 	// TODO: Consider asking for port number in a separate model/view
 
 	var chatView strings.Builder
-	chatView.WriteString("Type 'start chat my port ' and the port number for your server to join the chatroom.\n")
-	chatView.WriteString("Then type 'connect to port ' and follow it with a port number. (Type 'exit' to quit.)\n\n")
 
+	chatView.WriteString(fmt.Sprintf("\n*** To start a chat server type %s followed by your port number. \n (If no port number is provided, the default entered in %s will be used.)\n\n",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#f47d56")).Bold(true).Render("'start chat my port <port>'"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#f47d56")).Bold(true).Render("'user settings'"),
+	))
+	chatView.WriteString(fmt.Sprintf("*** To connect to a chat server type %s followed by the port number.",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#f47d56")).Bold(true).Render("'connect to port <port>'"),
+	))
+
+	chatView.WriteString(fmt.Sprintf("\n\n%s.\n\n",
+		lipgloss.NewStyle().Faint(true).Render("To exit, type 'exit' or press 'ctrl + c'"),
+	))
 	// TODO: If the time is the same and user is the same, join all the messages into one block
 	// TODO: If the time is different and the user is the same, show only the first time
 	// TODO: Perhaps make the last message blink?
 	for _, message := range m.messages {
 		tempChatView := fmt.Sprintf(
-			"%s\n%s: %s",
+			"%s - %s\n%s",
 			timestampStyle.Render(message.Timestamp.Format("2006-01-02 15:04")),
 			senderStyle.Render(message.Sender),
-			message.Text,
+			wrapText(message.Text, maxLineLength-messageStyle.GetHorizontalPadding()),
 		)
 		chatView.WriteString(messageStyle.Render(tempChatView) + "\n")
 	}
@@ -201,8 +228,6 @@ func (m *ChatModel) View() string {
 	return fmt.Sprintf("%s\n\n%s", chatView.String(), inputStyle.Render(indicator, m.input))
 }
 
-// Removes the last n number of characters from a string and returns the new string.
-// 's' is defined as some string
 func deleteLastNCharacters(s string, n int) string {
 	size := len(s)
 
@@ -243,6 +268,15 @@ func readListener(listener net.Listener) listenerConn {
 }
 
 func startListenerCmd(port string) tea.Cmd {
+	if !validatePort(port) {
+		return func() tea.Msg {
+			fmt.Printf("Only ports in the range %d-%d are allowed, re-enter", LOWERBOUND_PORT_NUMBER, UPPERBOUND_PORT_NUMBER)
+			return errorOnMessageReceive{err: fmt.Errorf("invalid port: %s", port)}
+		}
+	}
+
+	//port already being used
+
 	return func() tea.Msg {
 		return startServer(port)
 	}
@@ -274,16 +308,6 @@ func createPeerConnCmd(address string, portNumber string) tea.Cmd {
 	}
 }
 
-// func handleListenerConnCmd(conn net.Conn) tea.Cmd {
-// 	return func() tea.Msg {
-// 		jsonMessage, err := handleListenerConn(conn)
-// 		if err != nil {
-// 			return errorOnMessageReceive{err: err}
-// 		}
-
-//			return jsonMessage
-//		}
-//	}
 func handleListenerConnCmd(conn net.Conn) tea.Cmd {
 	return func() tea.Msg {
 		if conn == nil {
@@ -299,22 +323,6 @@ func handleListenerConnCmd(conn net.Conn) tea.Cmd {
 	}
 }
 
-// func handleListenerConn(conn net.Conn) (incomingJson, error) {
-// 	reader := bufio.NewReader(conn)
-
-// 	for {
-// 		log.Println("Listener is handling connection, awaiting read: ", conn.LocalAddr().String())
-// 		jsonMessage, err := reader.ReadBytes('\n')
-
-// 		if err != nil {
-// 			log.Println("Friend disconnected:", err)
-// 			return jsonMessage, err
-// 		}
-
-//			log.Println("Handle listener message received as: ", jsonMessage)
-//			return jsonMessage, nil
-//		}
-//	}
 func handleListenerConn(conn net.Conn) (incomingJson, error) {
 	reader := bufio.NewReader(conn)
 
@@ -410,4 +418,61 @@ func handleDbAndReceiveMessageCmd(jsonData []byte, dbHandler *db.DbHandler) tea.
 
 		return msg
 	}
+}
+
+func validatePort(port string) bool {
+	portNumber, err := strconv.Atoi(port)
+	if err != nil {
+		log.Printf("%s is not valid port number due to not being integer:", port)
+		return false
+	}
+	if !(LOWERBOUND_PORT_NUMBER <= portNumber && portNumber <= UPPERBOUND_PORT_NUMBER) {
+		log.Printf("%d is out of range [%d, %d]", portNumber, LOWERBOUND_PORT_NUMBER, UPPERBOUND_PORT_NUMBER)
+		return false
+	}
+	return true
+}
+
+func wrapText(text string, maxLineLength int) string {
+	words := strings.Fields(text)
+
+	const LONG_WORD_PADDING int = 2
+	var result strings.Builder
+	var line string
+
+	for _, word := range words {
+		if len(word) > maxLineLength {
+			if len(line) > 0 {
+				if len(line) < maxLineLength {
+					line += " "
+				}
+				result.WriteString(line)
+				result.WriteRune('\n')
+				line = ""
+			}
+			for len(word) > maxLineLength {
+				result.WriteString(word[:maxLineLength-LONG_WORD_PADDING])
+				result.WriteRune('\n')
+				word = word[maxLineLength-LONG_WORD_PADDING:]
+			}
+			if len(word) > 0 {
+				line = word
+			}
+			continue
+		}
+
+		if len(line) == 0 {
+			line = word
+		} else if len(line)+1+len(word) <= maxLineLength {
+			line += " " + word
+		} else {
+			result.WriteString(line)
+			result.WriteRune('\n')
+			line = word
+		}
+	}
+	if len(line) > 0 {
+		result.WriteString(line)
+	}
+	return result.String()
 }

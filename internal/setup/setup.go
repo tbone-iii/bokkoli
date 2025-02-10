@@ -31,6 +31,8 @@ type SetupModel struct {
 }
 
 func New() *SetupModel {
+	// Reset global variables
+
 	dbHandler, err := db.NewDbHandler(db.DefaultDbFilePath)
 	if err != nil {
 		log.Fatal("DB failed to open in setup model.")
@@ -161,7 +163,7 @@ func (m SetupModel) View() string {
 	if m.isValidDataAndCompleted {
 		return m.Form.View() +
 			fmt.Sprintf("\n\nSaved successfully, you selected username: %s, port: %s", username, portNumber) +
-			lipgloss.NewStyle().Blink(true).Faint(true).Render("\nPress 'esc' to return back to main menu.")
+			lipgloss.NewStyle().Faint(true).Render("\nPress 'esc' to return back to main menu.")
 	}
 	return m.Form.View()
 }

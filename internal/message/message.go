@@ -44,6 +44,11 @@ type errorOnMessageSend struct {
 	err error
 }
 
+type Setup struct {
+	Username string
+	Port     string
+}
+
 type (
 	listener     net.Listener
 	incomingJson []byte
@@ -73,8 +78,8 @@ func New() *ChatModel {
 		log.Fatal("Error upon schema creation: ", err)
 	}
 
-	var portNumber string = "8080"
-	var username string = "DefaultUser"
+	var portNumber string //= "8080"
+	var username string   //= "DefaultUser"
 
 	setup, err := dbHandler.ReadSetup()
 	if err == nil {
@@ -269,8 +274,22 @@ func createPeerConnCmd(address string, portNumber string) tea.Cmd {
 	}
 }
 
+// func handleListenerConnCmd(conn net.Conn) tea.Cmd {
+// 	return func() tea.Msg {
+// 		jsonMessage, err := handleListenerConn(conn)
+// 		if err != nil {
+// 			return errorOnMessageReceive{err: err}
+// 		}
+
+//			return jsonMessage
+//		}
+//	}
 func handleListenerConnCmd(conn net.Conn) tea.Cmd {
 	return func() tea.Msg {
+		if conn == nil {
+			return errorOnMessageReceive{err: fmt.Errorf("connection is nil")}
+		}
+
 		jsonMessage, err := handleListenerConn(conn)
 		if err != nil {
 			return errorOnMessageReceive{err: err}
@@ -280,21 +299,35 @@ func handleListenerConnCmd(conn net.Conn) tea.Cmd {
 	}
 }
 
+// func handleListenerConn(conn net.Conn) (incomingJson, error) {
+// 	reader := bufio.NewReader(conn)
+
+// 	for {
+// 		log.Println("Listener is handling connection, awaiting read: ", conn.LocalAddr().String())
+// 		jsonMessage, err := reader.ReadBytes('\n')
+
+// 		if err != nil {
+// 			log.Println("Friend disconnected:", err)
+// 			return jsonMessage, err
+// 		}
+
+//			log.Println("Handle listener message received as: ", jsonMessage)
+//			return jsonMessage, nil
+//		}
+//	}
 func handleListenerConn(conn net.Conn) (incomingJson, error) {
 	reader := bufio.NewReader(conn)
 
-	for {
-		log.Println("Listener is handling connection, awaiting read: ", conn.LocalAddr().String())
-		jsonMessage, err := reader.ReadBytes('\n')
+	log.Println("Listener is handling connection, awaiting read: ", conn.LocalAddr().String())
+	jsonMessage, err := reader.ReadBytes('\n')
 
-		if err != nil {
-			log.Println("Friend disconnected:", err)
-			return jsonMessage, err
-		}
-
-		log.Println("Handle listener message received as: ", jsonMessage)
-		return jsonMessage, nil
+	if err != nil {
+		log.Println("Friend disconnected:", err)
+		return nil, err
 	}
+
+	log.Println("Handle listener message received as: ", jsonMessage)
+	return jsonMessage, nil
 }
 
 func createMessage(text, sender, receiver string, direction db.Direction) db.Message {

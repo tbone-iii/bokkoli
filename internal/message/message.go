@@ -433,6 +433,8 @@ func validatePort(port string) bool {
 	return true
 }
 
+// Intelligently wrap text based on max line length and breaks on spaces
+// If a word is longer than the max line length, it will break the word into parts
 func wrapText(text string, maxLineLength int) string {
 	words := strings.Fields(text)
 

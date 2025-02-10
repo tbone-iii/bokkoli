@@ -71,13 +71,14 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "enter" && m.state == loginView {
 			switch m.login.Cursor {
 			case 0:
-				log.Println("Entered login view state.")
 				m.state = chatView
 			case 1:
 				log.Println("Entered setup view state.")
 				m.state = setupView
+				m.setup = setup.New()
 			}
 		}
+
 	}
 
 	switch m.state {

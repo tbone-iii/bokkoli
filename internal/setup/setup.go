@@ -2,6 +2,7 @@ package setup
 
 import (
 	"bokkoli/internal/db"
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -18,8 +19,8 @@ const (
 )
 
 var (
-	username   string = "Username-read-from-db" // db.readUsername()
-	portNumber string = "8080"                  // db.readPortNumber()
+	username   string //= "Username-read-from-db" // db.readUsername()
+	portNumber string //= "8080"                  // db.readPortNumber()
 	confirm    bool
 )
 
@@ -40,28 +41,52 @@ func New() *SetupModel {
 		log.Fatal("DB failed to set up schema for setup.")
 	}
 
+	// Create the form with proper validation
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title(""), //bubbletea Huh bug
+				Title(""), // bubbletea Huh bug, possibly remove this field if not needed
 			huh.NewInput().
 				Key("username").
 				Title("Input username").
-				Prompt("> ").
 				Placeholder("<username>").
-				Value(&username),
+				Value(&username).
+				Validate(func(str string) error {
+					if str == "" {
+						return errors.New("sorry, username cannot be left empty")
+					}
+					return nil
+				}),
 			huh.NewInput().
 				Key("port").
 				Title("Enter new port number").
-				Suggestions([]string{"8080", "8081"}).
-				Value(&portNumber),
+				Placeholder("<port number>").
+				Value(&portNumber).
+				Validate(func(str string) error {
+					// Try to convert the port string to an integer
+					portInt, err := strconv.Atoi(str)
+					if err != nil {
+						return errors.New("invalid port number, ports are numbers")
+					}
+
+					// Port validation logic: must be in the range [1024, 49151]
+					if portInt < LOWERBOUND_PORT_NUMBER || portInt > UPPERBOUND_PORT_NUMBER {
+						return fmt.Errorf("sorry, only ports in the range %d-%d are allowed", LOWERBOUND_PORT_NUMBER, UPPERBOUND_PORT_NUMBER)
+					}
+					return nil
+				}),
 			huh.NewConfirm().
 				Title("Please confirm username and port number").
+				Validate(func(v bool) error {
+					if !v {
+						return fmt.Errorf("no isn't actually an option, press 'Save' ~(^-^~)")
+					}
+					return nil
+				}).
 				Affirmative("Save").
 				Value(&confirm),
 		),
 	)
-
 	return &SetupModel{
 		Form:      form,
 		dbHandler: dbHandler,
@@ -102,6 +127,10 @@ func (m SetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				log.Panicf("DB did not save record properly to settings.\nPort: %s\nUsername: %s", tempPort, tempUsername)
 			}
 			m.isValidDataAndCompleted = true
+			if m.Form.State == huh.StateCompleted && !m.isValidDataAndCompleted {
+				fmt.Printf("Form State: %v\n", m.Form.State)                           // Add debug output here
+				fmt.Printf("isValidDataAndCompleted: %v\n", m.isValidDataAndCompleted) // Add debug output here
+			}
 		}
 
 	}

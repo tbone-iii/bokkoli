@@ -12,14 +12,6 @@ type Setup struct {
 	Username string
 }
 
-// type errorString struct {
-// 	s string
-// }
-
-// func (e *errorString) Error() string {
-// 	return e.s
-// }
-
 // TODO: Consider receiver methods for ALL things DBhandler related (e.g. chatdb methods)
 func (handler *DbHandler) setupSetupSchema() error {
 	query := `

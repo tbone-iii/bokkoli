@@ -16,7 +16,7 @@ type Model struct {
 
 func New() Model {
 	return Model{
-		choices:  []string{"Start chatting", "User Setting", "option 3"},
+		choices:  []string{"Start chatting", "User Setting"},
 		selected: make(map[int]struct{}),
 	}
 }

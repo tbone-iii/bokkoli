@@ -51,7 +51,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 func (m Model) View() string {
 	s := strings.Builder{}
-	s.WriteString("Bokkoli\n\n")
+	s.WriteString("🥦 Bokkoli 🥦 \n\n")
 
 	selectedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("34")).

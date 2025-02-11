@@ -106,7 +106,6 @@ func (m SetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Fatal("Wrong type assertion, expected *huh.Form, got ", reflect.TypeOf(form))
 	}
 
-	// TODO: Even when no is selected on confirm field, form is considered "complete", make sure to check the condition
 	if m.Form.State == huh.StateCompleted && !m.isValidDataAndCompleted {
 		tempUsername := m.Form.GetString("username")
 		tempPort := m.Form.GetString("port")
@@ -129,8 +128,8 @@ func (m SetupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.isValidDataAndCompleted = true
 			if m.Form.State == huh.StateCompleted && !m.isValidDataAndCompleted {
-				fmt.Printf("Form State: %v\n", m.Form.State)                           // Add debug output here
-				fmt.Printf("isValidDataAndCompleted: %v\n", m.isValidDataAndCompleted) // Add debug output here
+				fmt.Printf("Form State: %v\n", m.Form.State)
+				fmt.Printf("isValidDataAndCompleted: %v\n", m.isValidDataAndCompleted)
 			}
 		}
 

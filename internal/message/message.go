@@ -27,7 +27,6 @@ var senderStyle = lipgloss.NewStyle().
 	Bold(true).
 	Foreground(lipgloss.Color("#FAFAFA")).
 	Background(lipgloss.Color("#a488f7"))
-	// Margin(1, 1, 1)
 
 var timestampSenderStyle = lipgloss.NewStyle().
 	PaddingBottom(2)
@@ -36,10 +35,9 @@ var maxLineLength = 50
 
 var messageStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.RoundedBorder()).
-	MaxWidth(maxLineLength). //
+	MaxWidth(maxLineLength).
 	Padding(1, 1, 1)
 
-// MaxWidth(30)
 var inputStyle = lipgloss.NewStyle().Faint(true)
 var inputLineIndicator = lipgloss.NewStyle().
 	Blink(true).
@@ -74,7 +72,7 @@ type ChatModel struct {
 	// TODO: If # of fields increase, break down into grouped sub-structs
 	messages     []db.Message
 	input        string
-	peerConn     net.Conn // TODO: You will implement an array of peers
+	peerConn     net.Conn // TODO: implement an array of peers
 	listenerConn net.Conn
 	listener     net.Listener
 	isClient     bool
@@ -130,9 +128,6 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if suffix == "" {
 					suffix = m.portNumber
 				}
-				// if suffix == reciever port {
-				// 	"Port is already in use by someone else. Enter another"
-				// }
 				m.portNumber = suffix
 				return m, startListenerCmd(suffix)
 			}
@@ -271,7 +266,6 @@ func startListenerCmd(port string) tea.Cmd {
 		}
 	}
 
-	//port already being used
 	listener, err := startServer(port)
 	if err != nil {
 		return func() tea.Msg { return errorOnMessageReceive{err: fmt.Errorf("port already in use: %s", port)} }
@@ -386,7 +380,7 @@ func handleDbAndSendMessage(message db.Message, conn net.Conn, dbHandler *db.DbH
 		return message, err
 	}
 
-	_, err = conn.Write(append(jsonData, '\n')) // Add new line for reader to actually parse the delimiter appropriately
+	_, err = conn.Write(append(jsonData, '\n'))
 	if err != nil {
 		log.Printf("error sending messageL %v", err)
 		return message, err

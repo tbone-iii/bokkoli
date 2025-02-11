@@ -20,13 +20,8 @@ const (
 	UPPERBOUND_PORT_NUMBER int = 49151
 )
 
-var boldStyle = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(lipgloss.Color("#f47d56"))
-
 var timestampStyle = lipgloss.NewStyle().Italic(true).
-	Faint(true).
-	PaddingBottom(2)
+	Faint(true)
 
 var senderStyle = lipgloss.NewStyle().
 	Bold(true).
@@ -34,7 +29,10 @@ var senderStyle = lipgloss.NewStyle().
 	Background(lipgloss.Color("#a488f7"))
 	// Margin(1, 1, 1)
 
-var maxLineLength = 50 //
+var timestampSenderStyle = lipgloss.NewStyle().
+	PaddingBottom(2)
+
+var maxLineLength = 50
 
 var messageStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.RoundedBorder()).
@@ -132,6 +130,9 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if suffix == "" {
 					suffix = m.portNumber
 				}
+				// if suffix == reciever port {
+				// 	"Port is already in use by someone else. Enter another"
+				// }
 				m.portNumber = suffix
 				return m, startListenerCmd(suffix)
 			}
@@ -153,6 +154,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input != "" && m.peerConn != nil {
 				temp_input := m.input
 				m.input = ""
+				//message := createMessage(temp_input, " "+m.username, " "+m.portNumber, db.Outgoing)
 				message := createMessage(temp_input, " "+m.username, "Pickle", db.Outgoing)
 				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.dbHandler)
 			}
@@ -211,16 +213,11 @@ func (m *ChatModel) View() string {
 	chatView.WriteString(fmt.Sprintf("\n\n%s.\n\n",
 		lipgloss.NewStyle().Faint(true).Render("To exit, type 'exit' or press 'ctrl + c'"),
 	))
-	// TODO: If the time is the same and user is the same, join all the messages into one block
-	// TODO: If the time is different and the user is the same, show only the first time
-	// TODO: Perhaps make the last message blink?
+
 	for _, message := range m.messages {
-		tempChatView := fmt.Sprintf(
-			"%s - %s\n%s",
-			timestampStyle.Render(message.Timestamp.Format("2006-01-02 15:04")),
-			senderStyle.Render(message.Sender),
-			wrapText(message.Text, maxLineLength-messageStyle.GetHorizontalPadding()),
-		)
+		tempChatView := fmt.Sprintf("%s - %s", timestampStyle.Render(message.Timestamp.Format("2006-01-02 15:04")), senderStyle.Render(message.Sender))
+		tempChatView = timestampSenderStyle.Render(tempChatView) + "\n"
+		tempChatView += wrapText(message.Text, maxLineLength-messageStyle.GetHorizontalPadding())
 		chatView.WriteString(messageStyle.Render(tempChatView) + "\n")
 	}
 

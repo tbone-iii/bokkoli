@@ -62,9 +62,15 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "esc":
-			// rebuilding the chatview is necessary for the setup values to update properly
-			m.state = loginView
-			m.chat = message.New()
+			// rebuilding of the subviews(models) is necessary to show the fresh view when re-entering
+			switch m.state {
+			case setupView:
+				m.state = loginView
+				m.setup = setup.New()
+			case chatView:
+				m.state = loginView
+				m.chat = message.New()
+			}
 			return m, nil
 		}
 

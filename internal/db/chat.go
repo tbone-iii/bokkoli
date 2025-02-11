@@ -17,7 +17,6 @@ const (
 type Message struct {
 	Text      string    `json:"text"`
 	Sender    string    `json:"sender"`
-	Receiver  string    `json:"receiver"`
 	Direction Direction `json:"direction"`
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -30,7 +29,6 @@ func (handler *DbHandler) setupMessageSchema() error {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         text TEXT NOT NULL,
         sender TEXT NOT NULL,
-        receiver TEXT NOT NULL,
 		direction TEXT NOT NULL,
         timestamp DATETIME NOT NULL
     );`
@@ -41,10 +39,10 @@ func (handler *DbHandler) setupMessageSchema() error {
 
 func (handler *DbHandler) SaveMessage(msg Message) error {
 	query := `
-	INSERT INTO messages (text, sender, receiver, direction, timestamp)
+	INSERT INTO messages (text, sender, direction, timestamp)
 	VALUES (?, ?, ?, ?, ?);
 	`
 
-	_, err := handler.ExecuteQuery(query, msg.Text, msg.Sender, msg.Receiver, msg.Direction, msg.Timestamp)
+	_, err := handler.ExecuteQuery(query, msg.Text, msg.Sender, msg.Direction, msg.Timestamp)
 	return err
 }

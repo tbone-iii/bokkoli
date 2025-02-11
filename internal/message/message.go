@@ -154,8 +154,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input != "" && m.peerConn != nil {
 				temp_input := m.input
 				m.input = ""
-				//message := createMessage(temp_input, " "+m.username, " "+m.portNumber, db.Outgoing)
-				message := createMessage(temp_input, " "+m.username, "Pickle", db.Outgoing)
+				message := createMessage(temp_input, m.username, db.Outgoing)
 				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.dbHandler)
 			}
 
@@ -211,7 +210,7 @@ func (m *ChatModel) View() string {
 	))
 
 	chatView.WriteString(fmt.Sprintf("\n\n%s.\n\n",
-		lipgloss.NewStyle().Faint(true).Render("To exit, type 'exit' or press 'ctrl + c'"),
+		lipgloss.NewStyle().Faint(true).Render("Press 'esc' to return to main menu.\nTo exit, type 'exit' or press 'ctrl + c' to exit program"),
 	))
 
 	for _, message := range m.messages {
@@ -273,23 +272,25 @@ func startListenerCmd(port string) tea.Cmd {
 	}
 
 	//port already being used
+	listener, err := startServer(port)
+	if err != nil {
+		return func() tea.Msg { return errorOnMessageReceive{err: fmt.Errorf("port already in use: %s", port)} }
+	}
 
 	return func() tea.Msg {
-		return startServer(port)
+		return func() tea.Msg { return listener }
 	}
 }
 
-func startServer(port string) listener {
-	for {
-		listener, err := net.Listen("tcp", ":"+port)
-		if err != nil {
-			fmt.Println("Error starting server:", err)
-			continue
-		}
-		fmt.Printf("Server listening on port '%s'\n", port)
-
-		return listener
+func startServer(port string) (listener, error) {
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		fmt.Printf("Error starting server, port '%s' is already in use, select a different port. ", port)
+		return listener, err
 	}
+	fmt.Printf("Server listening on port '%s'\n", port)
+
+	return listener, nil
 }
 
 func createPeerConnCmd(address string, portNumber string) tea.Cmd {
@@ -335,11 +336,10 @@ func handleListenerConn(conn net.Conn) (incomingJson, error) {
 	return jsonMessage, nil
 }
 
-func createMessage(text, sender, receiver string, direction db.Direction) db.Message {
+func createMessage(text string, sender string, direction db.Direction) db.Message {
 	return db.Message{
 		Text:      text,
 		Sender:    sender,
-		Receiver:  receiver,
 		Direction: direction,
 		Timestamp: time.Now(),
 	}

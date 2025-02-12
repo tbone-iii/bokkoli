@@ -6,7 +6,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// TODO: Find import Message struct solution to avoid circular imports
 type Direction string
 
 const (
@@ -20,8 +19,6 @@ type Message struct {
 	Direction Direction `json:"direction"`
 	Timestamp time.Time `json:"timestamp"`
 }
-
-// TODO: End todo ^^
 
 func (handler *DbHandler) setupMessageSchema() error {
 	query := `

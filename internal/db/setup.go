@@ -12,7 +12,6 @@ type Setup struct {
 	Username string
 }
 
-// TODO: Consider receiver methods for ALL things DBhandler related (e.g. chatdb methods)
 func (handler *DbHandler) setupSetupSchema() error {
 	query := `
     CREATE TABLE IF NOT EXISTS setup (

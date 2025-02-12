@@ -63,6 +63,7 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "esc":
 			switch m.state {
+			// Rebuilding of the subviews(models) is necessary to show the fresh view when re-entering
 			case setupView:
 				m.state = loginView
 				m.setup = setup.New()

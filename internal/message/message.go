@@ -380,7 +380,9 @@ func handleDbAndSendMessage(message db.Message, conn net.Conn, dbHandler *db.DbH
 		return message, err
 	}
 
+	// The newline enables reader to actually parse the delimiter appropriately
 	_, err = conn.Write(append(jsonData, '\n'))
+
 	if err != nil {
 		log.Printf("error sending messageL %v", err)
 		return message, err

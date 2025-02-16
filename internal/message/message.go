@@ -136,7 +136,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input != "" && m.peerConn != nil {
 				temp_input := m.input
 				m.input = ""
-				message := createMessage(temp_input, m.settings.Port, db.Outgoing)
+				message := createMessage(temp_input, m.settings.Username, db.Outgoing)
 				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.dbHandler)
 			}
 

@@ -63,13 +63,8 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "esc":
 			switch m.state {
-			// Rebuilding of the subviews(models) is necessary to show the fresh view when re-entering
-			case setupView:
+			case setupView, chatView:
 				m.state = loginView
-				m.setup = setup.New()
-			case chatView:
-				m.state = loginView
-				m.chat = message.New()
 			}
 			return m, nil
 		}
@@ -77,10 +72,13 @@ func (m mainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "enter" && m.state == loginView {
 			switch m.login.Cursor {
 			case 0:
+				m.chat = message.New()
 				m.state = chatView
+				log.Println("Entered chat view state.")
 			case 1:
-				log.Println("Entered setup view state.")
+				m.setup = setup.New()
 				m.state = setupView
+				log.Println("Entered setup view state.")
 			}
 		}
 

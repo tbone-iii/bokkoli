@@ -3,7 +3,7 @@ package db
 import (
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type Direction string
@@ -37,7 +37,7 @@ func (handler *DbHandler) setupMessageSchema() error {
 func (handler *DbHandler) SaveMessage(msg Message) error {
 	query := `
 	INSERT INTO messages (text, sender, direction, timestamp)
-	VALUES (?, ?, ?, ?, ?);
+	VALUES (?, ?, ?, ?);
 	`
 
 	_, err := handler.ExecuteQuery(query, msg.Text, msg.Sender, msg.Direction, msg.Timestamp)

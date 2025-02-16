@@ -58,27 +58,20 @@ type errorOnMessageSend struct {
 	err error
 }
 
-type Setup struct {
-	Username string
-	Port     string
-}
-
 type (
 	listener     net.Listener
 	incomingJson []byte
 )
 
 type ChatModel struct {
-	// TODO: If # of fields increase, break down into grouped sub-structs
 	messages     []db.Message
 	input        string
 	peerConn     net.Conn // TODO: implement an array of peers
 	listenerConn net.Conn
 	listener     net.Listener
 	isClient     bool
-	portNumber   string
 	dbHandler    *db.DbHandler
-	username     string
+	settings     *db.Setup
 }
 
 func New() *ChatModel {
@@ -92,23 +85,17 @@ func New() *ChatModel {
 		log.Fatal("Error upon schema creation: ", err)
 	}
 
-	var portNumber string
-	var username string
-
-	setup, err := dbHandler.ReadSetup()
+	settings, err := dbHandler.ReadSetup()
 	if err == nil {
-		portNumber = setup.Port
-		username = setup.Username
-		log.Println("Setting port number and username read from DB: ", portNumber, username)
+		log.Println("User connection settings read from DB: ", settings)
 	}
 
 	return &ChatModel{
-		messages:   []db.Message{},
-		input:      "",
-		isClient:   false,
-		portNumber: portNumber,
-		username:   username,
-		dbHandler:  dbHandler,
+		messages:  []db.Message{},
+		input:     "",
+		isClient:  false,
+		settings:  &settings,
+		dbHandler: dbHandler,
 	}
 }
 
@@ -126,9 +113,9 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if success && m.listener == nil {
 				m.input = ""
 				if suffix == "" {
-					suffix = m.portNumber
+					suffix = m.settings.Port
 				}
-				m.portNumber = suffix
+				m.settings.Port = suffix
 				return m, startListenerCmd(suffix)
 			}
 
@@ -149,7 +136,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.input != "" && m.peerConn != nil {
 				temp_input := m.input
 				m.input = ""
-				message := createMessage(temp_input, m.username, db.Outgoing)
+				message := createMessage(temp_input, m.settings.Port, db.Outgoing)
 				return m, handleDbAndSendMessageCmd(message, m.peerConn, m.dbHandler)
 			}
 
@@ -172,7 +159,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case peerConn:
 		m.peerConn = msg.conn // TODO: Make into an array appending
 	case listenerConn:
-		log.Println("Connection read from listener on port: ", m.portNumber)
+		log.Println("Connection read from listener on port: ", m.settings.Port)
 		m.listenerConn = msg.conn // TODO: Make into an array appending
 		return m, handleListenerConnCmd(m.listenerConn)
 	case incomingJson:
@@ -182,7 +169,7 @@ func (m *ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errorOnMessageReceive:
 		// Do something here based on that
 	case listener:
-		log.Println("Listener started on port: ", m.portNumber)
+		log.Println("Listener started on port: ", m.settings.Port)
 		m.listener = msg
 		// Read new connections
 		return m, readListenerCmd(m.listener)
@@ -272,7 +259,7 @@ func startListenerCmd(port string) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		return func() tea.Msg { return listener }
+		return listener
 	}
 }
 

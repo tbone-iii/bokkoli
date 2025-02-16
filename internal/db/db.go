@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 const DefaultDbFilePath string = "./bokkoli.db"
@@ -45,7 +45,7 @@ func (handler DbHandler) Query(query string) (*sql.Rows, error) {
 }
 
 func NewDbHandler(filePath string) (*DbHandler, error) {
-	db, err := sql.Open("sqlite3", filePath)
+	db, err := sql.Open("sqlite", filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}

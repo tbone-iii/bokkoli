@@ -276,7 +276,7 @@ func startServer(port string) (listener, error) {
 
 func createPeerConnCmd(address string, portNumber string) tea.Cmd {
 	return func() tea.Msg {
-		fullAddress := fmt.Sprintf("%s:%s", address, portNumber)
+		fullAddress := net.JoinHostPort(address, portNumber)
 		conn, err := net.Dial("tcp", fullAddress)
 		if err != nil {
 			fmt.Println("error: ", err)
